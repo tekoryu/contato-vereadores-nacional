@@ -199,3 +199,26 @@ The URLs themselves were correct and had already been applied to `prefeituras.cs
 ### Lesson
 
 IBGE codes must always be sourced from authoritative references (IBGE itself, or our own `prefeituras.csv`). Never trust a code generated or inferred by a language model — they will look plausible and be wrong.
+
+---
+
+## 2026-05-22 — The Cost of the Odyssey
+
+### Token accounting
+
+Not all passes cost the same. Most of this work was done by Python scripts — zero LLM tokens, just HTTP requests and CSV manipulation. Only two steps involved language model calls beyond the main conversation.
+
+| Pass | Method | URLs recovered | LLM tokens | Notes |
+|---|---|---|---|---|
+| 1 — Panorama Senado | Python script, CSV cross-reference | 583 prefeitura + 3,377 câmara | ~0 | Pure data join |
+| 2 — `municipio.uf.gov.br` heuristic | Python + async HTTP (1,850 requests) | 1,517 | ~0 | No LLM involved |
+| 3 — Fallback patterns (`www.`, state suffix) | Python + async HTTP (333 requests) | 42 | ~0 | No LLM involved |
+| 4 — Câmara heuristic (`leg.br`, `camara.*`) | Python + async HTTP (2,194 requests) | 1,114 | ~0 | No LLM involved |
+| 5 — Manual hunt (last 27) | Web search agent | 26 prefeitura + 23 câmara | **~79,000** | 90 tool uses, 27 web searches |
+| Conversation overhead | Planning, scripting, history | — | ~ongoing | This session |
+
+### The takeaway
+
+**~79,000 tokens** (plus conversation context) to close the final 0.5% — the hardest 27 municipalities that defeated every automated approach. The other 99.5% cost essentially nothing in LLM terms, just compute time for HTTP validation.
+
+The efficient strategy: exhaust deterministic methods first, reach for LLM-assisted research only when pattern-matching fails. In this project, that ratio held — scripts did the heavy lifting, the model filled the last gap.
