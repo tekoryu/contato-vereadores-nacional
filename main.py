@@ -1,17 +1,18 @@
 """Consolidate elected city counselors with their social network URLs."""
-import csv
 import json
 import re
 from collections import defaultdict, Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
+import pandas as pd
+
 RAW = Path(__file__).parent / "data" / "raw"
 OUT = Path(__file__).parent / "data" / "vereadores-completo.json"
 
-ELEITOS = RAW / "vereadores_eleitos_2024.csv"
-REDES = RAW / "rede_social_candidato_2024_BRASIL.csv"
-MUNICIPIOS = RAW / "municipio_tse_ibge.csv"
+ELEITOS = RAW / "vereadores_eleitos_2024.parquet"
+REDES = RAW / "rede_social_candidato_2024.parquet"
+MUNICIPIOS = RAW / "municipio_tse_ibge.parquet"
 
 
 def extract_handle(url: str) -> str:
@@ -51,30 +52,32 @@ def classify_network(url: str) -> str:
 
 
 def main() -> None:
-    municipios: dict[str, dict] = {}
-    with MUNICIPIOS.open(encoding="latin-1") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        for row in reader:
-            municipios[row["CD_MUNICIPIO_TSE"]] = {
-                "municipio_ibge_id": row["CD_MUNICIPIO_IBGE"],
-                "municipio_nome": row["NM_MUNICIPIO_IBGE"],
-            }
+    municipios_df = pd.read_parquet(MUNICIPIOS, columns=["CD_MUNICIPIO_TSE", "CD_MUNICIPIO_IBGE", "NM_MUNICIPIO_IBGE"])
+    municipios = {
+        str(row["CD_MUNICIPIO_TSE"]): {
+            "municipio_ibge_id": str(row["CD_MUNICIPIO_IBGE"]),
+            "municipio_nome": row["NM_MUNICIPIO_IBGE"],
+        }
+        for _, row in municipios_df.iterrows()
+    }
 
-    with ELEITOS.open(encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        eleitos = {row["candidato_seq"]: dict(row) for row in reader}
+    eleitos_df = pd.read_parquet(ELEITOS)
+    eleitos = {
+        str(row["candidato_seq"]): row.to_dict()
+        for _, row in eleitos_df.iterrows()
+    }
 
     redes_por_cand: dict[str, list[dict]] = defaultdict(list)
-    with REDES.open(encoding="latin-1") as f:
-        reader = csv.DictReader(f, delimiter=";")
-        for row in reader:
-            sq = row["SQ_CANDIDATO"]
-            ordem_raw = row["NR_ORDEM_REDE_SOCIAL"]
-            redes_por_cand[sq].append({
-                "ordem": int(ordem_raw) if ordem_raw.isdigit() else None,
-                "url": row["DS_URL"],
-                "rede": classify_network(row["DS_URL"]),
-            })
+    redes_df = pd.read_parquet(REDES, columns=["candidato_seq", "ordem_rede_social_nr", "url_descricao"])
+    for _, row in redes_df.iterrows():
+        sq = str(row["candidato_seq"])
+        ordem_raw = row["ordem_rede_social_nr"]
+        url = str(row["url_descricao"])
+        redes_por_cand[sq].append({
+            "ordem": int(ordem_raw) if pd.notna(ordem_raw) else None,
+            "url": url,
+            "rede": classify_network(url),
+        })
 
     consolidated = []
     network_counter: Counter = Counter()
@@ -87,7 +90,7 @@ def main() -> None:
             key=lambda r: (r["ordem"] is None, r["ordem"] or 0),
         )
         entry = dict(base)
-        muni = municipios.get(base["municipio_tse_id"], {})
+        muni = municipios.get(str(base["municipio_tse_id"]), {})
         entry["municipio_ibge_id"] = muni.get("municipio_ibge_id")
         entry["municipio_nome"] = muni.get("municipio_nome")
         by_network: dict[str, list[str]] = defaultdict(list)
