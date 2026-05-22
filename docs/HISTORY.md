@@ -208,17 +208,18 @@ IBGE codes must always be sourced from authoritative references (IBGE itself, or
 
 Not all passes cost the same. Most of this work was done by Python scripts — zero LLM tokens, just HTTP requests and CSV manipulation. Only two steps involved language model calls beyond the main conversation.
 
-| Pass | Method | URLs recovered | LLM tokens | Notes |
+| Pass | Method | URLs recovered | Script tokens (est.) | Agent tokens |
 |---|---|---|---|---|
-| 1 — Panorama Senado | Python script, CSV cross-reference | 583 prefeitura + 3,377 câmara | ~0 | Pure data join |
-| 2 — `municipio.uf.gov.br` heuristic | Python + async HTTP (1,850 requests) | 1,517 | ~0 | No LLM involved |
-| 3 — Fallback patterns (`www.`, state suffix) | Python + async HTTP (333 requests) | 42 | ~0 | No LLM involved |
-| 4 — Câmara heuristic (`leg.br`, `camara.*`) | Python + async HTTP (2,194 requests) | 1,114 | ~0 | No LLM involved |
-| 5 — Manual hunt (last 27) | Web search agent | 26 prefeitura + 23 câmara | **~79,000** | 90 tool uses, 27 web searches |
-| Conversation overhead | Planning, scripting, history | — | ~ongoing | This session |
+| 1 — Panorama Senado | CSV cross-reference script | 583 prefeitura + 3,377 câmara | ~8,000 | — |
+| 2 — `municipio.uf.gov.br` heuristic | Async HTTP validation (1,850 req.) | 1,517 | ~6,000 | — |
+| 3 — Fallback patterns (`www.`, state suffix) | Async HTTP validation (333 req.) | ~4,000 | — |
+| 4 — Câmara heuristic (`leg.br`, `camara.*`) | Async HTTP validation (2,194 req.) | 1,114 | ~6,000 | — |
+| 5 — Manual hunt (last 27) | Web search agent | 26 prefeitura + 23 câmara | — | **~79,000** |
+
+"Script tokens" covers the conversation turns where the scripts were written, debugged, and iterated — the LLM wrote the code, analyzed the data, and decided on the approach. Those tokens are real, just harder to isolate precisely since they're part of the main conversation context.
 
 ### The takeaway
 
-**~79,000 tokens** (plus conversation context) to close the final 0.5% — the hardest 27 municipalities that defeated every automated approach. The other 99.5% cost essentially nothing in LLM terms, just compute time for HTTP validation.
+The **~79,000 dedicated agent tokens** for the last 27 stand out because that was a self-contained subagent making dozens of web searches. The main conversation cost tokens too — roughly spread across script writing, data analysis, and decision-making at each step — but each pass recovered hundreds to thousands of URLs per iteration.
 
-The efficient strategy: exhaust deterministic methods first, reach for LLM-assisted research only when pattern-matching fails. In this project, that ratio held — scripts did the heavy lifting, the model filled the last gap.
+The efficient strategy held: exhaust deterministic scripted methods first, paying mainly for code authoring; reach for expensive search-based research only when every pattern has failed.
