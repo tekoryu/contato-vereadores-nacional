@@ -48,7 +48,7 @@ def pick_best_link(links: list[dict], politician_name: str, model: str) -> str |
     )
 
     try:
-        idx = int(response.message.content.strip()) - 1
+        idx = int(response.message.content.strip()) - 1 # pyright: ignore[reportOptionalMemberAccess]
         if 0 <= idx < len(links):
             return links[idx]["href"]
     except ValueError:
@@ -79,7 +79,7 @@ def identify_email(emails: list[str], politician_name: str, model: str) -> str |
         messages=[{"role": "user", "content": prompt}],
     )
 
-    result = response.message.content.strip()
+    result = response.message.content.strip() # pyright: ignore[reportOptionalMemberAccess]
     return None if result.lower() == "none" else result
 
 
