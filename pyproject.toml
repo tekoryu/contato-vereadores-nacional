@@ -10,3 +10,11 @@ dependencies = [
     "playwright>=1.60.0",
     "pyarrow>=24.0.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
