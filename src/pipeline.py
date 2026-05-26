@@ -1,16 +1,19 @@
+import argparse
 import json
 import os
-import sys
+import time
 
 import pandas as pd
 
 from fetcher import crawl_for_email
+from logging_setup import DecisionLogger, setup_logging
 
-RESULTS_PATH = "data/silver/results.jsonl"
+DEFAULT_INPUT = "data/silver/vereadores-completo.json"
+DEFAULT_RESULTS = "data/silver/results.jsonl"
 
 
-def load_data() -> tuple[list[dict], dict]:
-    with open("data/silver/vereadores-completo.json") as f:
+def load_data(input_path: str) -> tuple[list[dict], dict]:
+    with open(input_path) as f:
         politicians = json.load(f)
 
     prefeituras = pd.read_csv("data/silver/prefeituras.csv")
@@ -23,31 +26,35 @@ def load_data() -> tuple[list[dict], dict]:
     return politicians, url_map
 
 
-def load_processed_ids() -> set:
-    if not os.path.exists(RESULTS_PATH):
+def load_processed_ids(results_path: str) -> set:
+    if not os.path.exists(results_path):
         return set()
 
     processed = set()
-    with open(RESULTS_PATH) as f:
+    with open(results_path) as f:
         for line in f:
             record = json.loads(line)
             processed.add(record["candidato_seq"])
     return processed
 
 
-def write_result(candidato_seq: int, email: str | None, status: str) -> None:
-    with open(RESULTS_PATH, "a") as f:
-        record = {"candidato_seq": candidato_seq, "email": email, "status": status}
+def write_result(results_path: str, candidato_seq: int, email: str | None, status: str, source_url: str | None = None) -> None:
+    with open(results_path, "a") as f:
+        record = {"candidato_seq": candidato_seq, "email": email, "source_url": source_url, "status": status}
         f.write(json.dumps(record) + "\n")
 
 
-def run(model: str = "qwen2.5:14b") -> None:
-    politicians, url_map = load_data()
-    processed = load_processed_ids()
+def run(input_path: str, results_path: str, model: str) -> None:
+    logger = setup_logging()
+    decision_log = DecisionLogger()
+
+    politicians, url_map = load_data(input_path)
+    processed = load_processed_ids(results_path)
 
     total = len(politicians)
     skipped = len(processed)
-    print(f"Total: {total} | Already processed: {skipped} | Remaining: {total - skipped}")
+    logger.info(f"Input: {input_path} | Results: {results_path} | Model: {model}")
+    logger.info(f"Total: {total} | Already processed: {skipped} | Remaining: {total - skipped}")
 
     for i, politician in enumerate(politicians):
         seq = politician["candidato_seq"]
@@ -66,34 +73,46 @@ def run(model: str = "qwen2.5:14b") -> None:
         candidates = [u for u in candidates if u and str(u) != "nan"]
 
         if not candidates:
-            print(f"  [{i+1}/{total}] No URLs for {politician['municipio_nome']}, skipping.")
-            write_result(seq, None, "no_url")
+            logger.warning(f"[{i+1}/{total}] No URLs for {politician['municipio_nome']}, skipping.")
+            write_result(results_path, seq, None, "no_url")
             continue
 
-        print(f"\n[{i+1}/{total}] {name} — {politician['municipio_nome']}")
+        logger.info(f"[{i+1}/{total}] {name} — {politician['municipio_nome']}")
 
         email = None
+        source_url = None
         had_error = False
+        t_start = time.perf_counter()
+
         for url in candidates:
-            print(f"  Trying: {url}")
+            logger.info(f"  Trying: {url}")
             try:
-                email = crawl_for_email(url, name, model)
+                result = crawl_for_email(url, name, model, decision_log=decision_log)
             except Exception as e:
-                print(f"  Error: {e}")
+                logger.error(f"  Error crawling {url}: {e}")
                 had_error = True
-                break
-            if email:
+                continue
+            if result:
+                email, source_url = result
                 break
 
+        elapsed = time.perf_counter() - t_start
+
         if email:
-            write_result(seq, email, "found")
+            write_result(results_path, seq, email, "found", source_url)
+            logger.info(f"  → found: {email} ({elapsed:.1f}s)")
         elif had_error:
-            write_result(seq, None, "error")
+            write_result(results_path, seq, None, "error")
+            logger.info(f"  → error ({elapsed:.1f}s)")
         else:
-            write_result(seq, None, "not_found")
-        print(f"  → {'found: ' + email if email else 'not_found'}")
+            write_result(results_path, seq, None, "not_found")
+            logger.info(f"  → not_found ({elapsed:.1f}s)")
 
 
 if __name__ == "__main__":
-    model = sys.argv[1] if len(sys.argv) > 1 else "qwen2.5:14b"
-    run(model)
+    parser = argparse.ArgumentParser(description="Crawl for politician emails.")
+    parser.add_argument("--input", default=DEFAULT_INPUT, help="Path to politicians JSON file.")
+    parser.add_argument("--results", default=DEFAULT_RESULTS, help="Path to JSONL results file.")
+    parser.add_argument("--model", default="qwen2.5:14b", help="Ollama model to use.")
+    args = parser.parse_args()
+    run(args.input, args.results, args.model)
