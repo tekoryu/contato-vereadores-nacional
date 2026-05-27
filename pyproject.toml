@@ -17,4 +17,5 @@ pythonpath = ["src"]
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
+    "rich>=15.0.0",
 ]
