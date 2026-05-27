@@ -1,0 +1,103 @@
+╭─── Claude Code v2.1.150 ─────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│               Welcome back Anderson!               │ started                 │
+│                                                    │ Run /init to create a … │
+│                      ▗ ▗   ▖ ▖                     │ ─────────────────────── │
+│                                                    │ What's new              │
+│                        ▘▘ ▝▝                       │ Internal infrastructur… │
+│    Sonnet 4.6 · Claude Pro · chedou@gmail.com's    │ `/usage` now shows a p… │
+│    Organization                                    │ `/diff` detail view ca… │
+│       ~/Projects/contato-vereadores-nacional       │ /release-notes for more │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+✻ Conversation compacted (ctrl+o for history)
+
+
+❯ /compact                                                                      
+  ⎿  Compacted (ctrl+o to see full summary)
+  ⎿  Read src/fetcher.py (180 lines)
+  ⎿  Read src/pipeline.py (108 lines)
+  ⎿  Referenced file ../../../../private/tmp/claude-501/-Users-NullAxiom-Projects-contato-vereadores-nacional/fb54aad6-05a7-4b59-b6e1-25b00bfb908e/tasks/bqqqmhuoo.output
+  ⎿  Read ../../../../private/tmp/claude-501/-Users-NullAxiom-Projects-contato-vereadores-nacional/fb54aad6-05a7-4b59-b6e1-25b00bfb908e/tasks/b31zntyfp.output (17 lines)
+  ⎿  Read ../../../../private/tmp/claude-501/-Users-NullAxiom-Projects-contato-vereadores-nacional/fb54aad6-05a7-4b59-b6e1-25b00bfb908e/tasks/b05y4235t.output (21 lines)
+
+❯ /context 
+  ⎿  Context Usage
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛀ ⛁   Sonnet 4.6
+     ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   claude-sonnet-4-6
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   27.2k/200k tokens (14%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   Estimated usage by category
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 6.6k tokens (3.3%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 10k tokens (5.0%)
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 1k tokens (0.5%)
+     ⛶ ⛶ ⛶ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛁ Messages: 9.6k tokens (4.8%)
+     ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝ ⛝   ⛶ Free space: 139.8k (69.9%)
+                           ⛝ Autocompact buffer: 33k tokens (16.5%)
+
+     MCP tools · /mcp (loaded on-demand)
+
+     Available
+     ├ mcp__claude_ai_Gmail__create_draft
+     ├ mcp__claude_ai_Gmail__create_label
+     ├ mcp__claude_ai_Gmail__delete_label
+     ├ mcp__claude_ai_Gmail__get_thread
+     ├ mcp__claude_ai_Gmail__label_message
+     ├ mcp__claude_ai_Gmail__label_thread
+     ├ mcp__claude_ai_Gmail__list_drafts
+     ├ mcp__claude_ai_Gmail__list_labels
+     ├ mcp__claude_ai_Gmail__search_threads
+     ├ mcp__claude_ai_Gmail__unlabel_message
+     ├ mcp__claude_ai_Gmail__unlabel_thread
+     ├ mcp__claude_ai_Gmail__update_label
+     ├ mcp__claude_ai_Google_Calendar__create_event
+     ├ mcp__claude_ai_Google_Calendar__delete_event
+     ├ mcp__claude_ai_Google_Calendar__get_event
+     ├ mcp__claude_ai_Google_Calendar__list_calendars
+     ├ mcp__claude_ai_Google_Calendar__list_events
+     ├ mcp__claude_ai_Google_Calendar__respond_to_event
+     ├ mcp__claude_ai_Google_Calendar__suggest_time
+     ├ mcp__claude_ai_Google_Calendar__update_event
+     ├ mcp__claude_ai_Google_Drive__copy_file
+     ├ mcp__claude_ai_Google_Drive__create_file
+     ├ mcp__claude_ai_Google_Drive__download_file_content
+     ├ mcp__claude_ai_Google_Drive__get_file_metadata
+     ├ mcp__claude_ai_Google_Drive__get_file_permissions
+     ├ mcp__claude_ai_Google_Drive__list_recent_files
+     ├ mcp__claude_ai_Google_Drive__read_file_content
+     ├ mcp__claude_ai_Google_Drive__search_files
+     ├ mcp__claude_ai_Notion__notion-create-comment
+     ├ mcp__claude_ai_Notion__notion-create-database
+     ├ mcp__claude_ai_Notion__notion-create-pages
+     ├ mcp__claude_ai_Notion__notion-create-view
+     ├ mcp__claude_ai_Notion__notion-duplicate-page
+     ├ mcp__claude_ai_Notion__notion-fetch
+     ├ mcp__claude_ai_Notion__notion-get-comments
+     ├ mcp__claude_ai_Notion__notion-get-teams
+     ├ mcp__claude_ai_Notion__notion-get-users
+     ├ mcp__claude_ai_Notion__notion-move-pages
+     ├ mcp__claude_ai_Notion__notion-search
+     ├ mcp__claude_ai_Notion__notion-update-data-source
+     ├ mcp__claude_ai_Notion__notion-update-page
+     └ mcp__claude_ai_Notion__notion-update-view
+
+     Skills · /skills
+
+     Project
+     ├ release-version: ~50 tokens
+     ├ atomic-commit: ~40 tokens
+     └ github-project-init: < 20 tokens
+
+     Built-in
+     ├ claude-api: ~190 tokens
+     ├ update-config: ~180 tokens
+     ├ schedule: ~100 tokens
+     ├ run: ~90 tokens
+     ├ loop: ~90 tokens
+     ├ verify: ~60 tokens
+     ├ keybindings-help: ~60 tokens
+     ├ code-review: ~60 tokens
+     ├ fewer-permission-prompts: ~50 tokens
+     ├ security-review: ~20 tokens
+     ├ init: < 20 tokens
+     └ review: < 20 tokens
