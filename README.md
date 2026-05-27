@@ -2,43 +2,63 @@
 
 **AI-Assisted Politician Email Finder for Brazilian municipal sites**
 
-Este projeto oferece uma CLI Python para rastrear sites de câmaras municipais e tentar extrair emails públicos de vereadores usando um modelo local de LLM via Ollama.
+Este projeto rastreia sites de câmaras municipais brasileiras e extrai emails
+públicos de vereadores usando um modelo local de LLM via Ollama, com um
+pipeline auxiliar que colhe parlamentares diretamente da API SAPL onde
+disponível.
 
 ## Stack Técnica
 
 - Python 3.12+
-- UV
-- Ollama
-- Playwright
-- Pandas
-- PyArrow
+- Ollama (LLM local)
+- Playwright (renderização headless)
+- Pandas + PyArrow
+- Git LFS (para os dados em `data/bronze/` e `data/silver/`)
 
 ## Estrutura do Projeto
 
 ```
 contato-vereadores-nacional/
 ├── data/
-│   ├── bronze/
-│   │   └── contato.csv
-│   ├── silver/
-│   │   ├── prefeituras.csv
-│   │   └── vereadores-completo.json
+│   ├── bronze/                       # fontes externas brutas (TSE, IBGE, etc.)
+│   │   ├── contato.csv
+│   │   ├── municipio_tse_ibge.parquet
+│   │   ├── rede_social_candidato_2024.parquet
+│   │   └── vereadores_eleitos_2024.parquet
+│   └── silver/                       # dados normalizados e resultados
+│       ├── prefeituras.csv           # URLs de câmara/prefeitura por IBGE
+│       ├── vereadores-completo.json  # vereadores-alvo do scan
+│       ├── vereadores-sapl.jsonl     # colhidos via API SAPL
+│       ├── sigi-casas.csv            # inventário SIGI
+│       └── results.jsonl             # saída do pipeline (resumable)
 ├── docs/
-│   └── HISTORY.md
+│   ├── HISTORY.md
+│   └── ONBOARDING.md
+├── scripts/                          # utilitários de dados (one-shot)
+│   ├── sapl_harvest.py               # colhe vereadores via API SAPL
+│   ├── sapl_coverage.py
+│   ├── sigi_gapfill.py
+│   ├── validate_urls.py
+│   ├── pass2_probe.py
+│   ├── promote_final_urls.py
+│   └── retry_timeouts.py
 ├── src/
-│   └── ai_finder_cli.py
+│   ├── pipeline.py                   # entrypoint do scan
+│   ├── fetcher.py                    # crawler + extração via LLM
+│   ├── sapl_client.py                # cliente da API SAPL
+│   └── logging_setup.py
 ├── pyproject.toml
-├── README.md
-└── LICENSE
+└── README.md
 ```
 
 ## Instalação
 
-1. Clone o repositório:
+1. Clone o repositório (com LFS habilitado):
 
 ```bash
 git clone https://github.com/tekoryu/contato-vereadores-nacional.git
 cd contato-vereadores-nacional
+git lfs pull
 ```
 
 2. Crie e ative um ambiente virtual:
@@ -52,31 +72,54 @@ source .venv/bin/activate
 
 ```bash
 pip install .
+playwright install chromium
+```
+
+4. Garanta que o Ollama esteja rodando e baixe o modelo padrão:
+
+```bash
+ollama pull qwen2.5:14b
 ```
 
 ## Uso
 
-Execute a CLI principal com a URL inicial do site a ser rastreado:
+### Pipeline principal (scan de câmaras)
 
 ```bash
-python src/ai_finder_cli.py \
-  --url https://www.exemplo.gov.br \
-  --model llama3 \
-  --host http://localhost:11434 \
-  --max-depth 3 \
-  --max-pages 15
+python src/pipeline.py
 ```
 
-Opções principais:
+Opções:
 
-- `--url`: URL de início do rastreamento
-- `--model`: nome do modelo local Ollama (padrão: `llama3`)
-- `--host`: endpoint do Ollama API (padrão: `http://localhost:11434`)
-- `--max-depth`: profundidade máxima de links a seguir
-- `--max-pages`: número máximo de páginas a visitar
-- `--verbose`: habilita logs de depuração
+- `--input`: JSON com os vereadores-alvo (padrão: `data/silver/vereadores-completo.json`)
+- `--results`: JSONL de saída (padrão: `data/silver/results.jsonl`). O pipeline é
+  **resumable** — vereadores já presentes nesse arquivo são pulados.
+- `--model`: modelo Ollama (padrão: `qwen2.5:14b`)
+
+Exemplo:
+
+```bash
+python src/pipeline.py \
+  --input data/silver/vereadores-completo.json \
+  --results data/silver/results.jsonl \
+  --model qwen2.5:14b
+```
+
+### Coleta via API SAPL (one-shot, opcional)
+
+Para câmaras que expõem a API SAPL, é mais barato puxar a lista de
+parlamentares direto do endpoint oficial em vez de rastrear o site:
+
+```bash
+python scripts/sapl_harvest.py
+```
+
+Anexa a `data/silver/vereadores-sapl.jsonl`; também é resumable.
 
 ## Notas
 
-- Garanta que o servidor Ollama esteja em execução antes de usar a CLI.
-- Os dados resultantes podem ser organizados manualmente na pasta `data/`.
+- O servidor Ollama precisa estar em execução antes de rodar o pipeline.
+- Os arquivos em `data/bronze/` e `data/silver/` são versionados via Git LFS;
+  rode `git lfs pull` após o clone.
+- `data/silver/dead_urls.json` cacheia URLs comprovadamente mortas para evitar
+  re-tentativas em runs futuros.
