@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import os
 import time
@@ -7,9 +8,16 @@ import pandas as pd
 
 from fetcher import crawl_for_email
 from logging_setup import DecisionLogger, setup_logging
+from sapl_client import fetch_parlamentares, match_parlamentar
 
 DEFAULT_INPUT = "data/silver/vereadores-completo.json"
 DEFAULT_RESULTS = "data/silver/results.jsonl"
+DEAD_URLS_PATH = "data/silver/dead_urls.json"
+
+
+def _pick_telefone(p) -> str:
+    """Prefer mobile, fall back to landline."""
+    return (p.telefone_celular or p.telefone or "").strip()
 
 
 def load_data(input_path: str) -> tuple[list[dict], dict]:
@@ -38,15 +46,69 @@ def load_processed_ids(results_path: str) -> set:
     return processed
 
 
-def write_result(results_path: str, candidato_seq: int, email: str | None, status: str, source_url: str | None = None) -> None:
+def write_result(
+    results_path: str,
+    candidato_seq: int,
+    email: str | None,
+    status: str,
+    source_url: str | None = None,
+    *,
+    telefone: str | None = None,
+    source: str | None = None,
+) -> None:
     with open(results_path, "a") as f:
-        record = {"candidato_seq": candidato_seq, "email": email, "source_url": source_url, "status": status}
-        f.write(json.dumps(record) + "\n")
+        record = {
+            "candidato_seq": candidato_seq,
+            "email": email,
+            "telefone": telefone,
+            "source_url": source_url,
+            "source": source,
+            "status": status,
+        }
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def load_dead_urls(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def record_dead_url(path: str, url: str, error: Exception, dead_urls: dict) -> None:
+    key = url.rstrip("/")
+    today = str(datetime.date.today())
+
+    msg = str(error)
+    if "ERR_NAME_NOT_RESOLVED" in msg:
+        error_type = "dns_error"
+    elif "Timeout" in msg:
+        error_type = "timeout"
+    elif "Download is starting" in msg:
+        error_type = "download"
+    else:
+        error_type = "other"
+
+    if key in dead_urls:
+        dead_urls[key]["count"] += 1
+        dead_urls[key]["last_seen"] = today
+        dead_urls[key]["error_type"] = error_type
+    else:
+        dead_urls[key] = {
+            "error_type": error_type,
+            "first_seen": today,
+            "last_seen": today,
+            "count": 1,
+        }
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(dead_urls, f, indent=2, ensure_ascii=False)
 
 
 def run(input_path: str, results_path: str, model: str) -> None:
     logger = setup_logging()
     decision_log = DecisionLogger()
+    dead_urls = load_dead_urls(DEAD_URLS_PATH)
 
     politicians, url_map = load_data(input_path)
     processed = load_processed_ids(results_path)
@@ -55,6 +117,7 @@ def run(input_path: str, results_path: str, model: str) -> None:
     skipped = len(processed)
     logger.info(f"Input: {input_path} | Results: {results_path} | Model: {model}")
     logger.info(f"Total: {total} | Already processed: {skipped} | Remaining: {total - skipped}")
+    logger.info(f"Dead URL cache: {len(dead_urls)} entries")
 
     for i, politician in enumerate(politicians):
         seq = politician["candidato_seq"]
@@ -79,28 +142,68 @@ def run(input_path: str, results_path: str, model: str) -> None:
 
         logger.info(f"[{i+1}/{total}] {name} — {politician['municipio_nome']}")
 
-        email = None
-        source_url = None
+        email: str | None = None
+        telefone: str | None = None
+        source_url: str | None = None
+        source: str | None = None
         had_error = False
         t_start = time.perf_counter()
 
-        for url in candidates:
-            logger.info(f"  Trying: {url}")
-            try:
-                result = crawl_for_email(url, name, model, decision_log=decision_log)
-            except Exception as e:
-                logger.error(f"  Error crawling {url}: {e}")
-                had_error = True
-                continue
-            if result:
-                email, source_url = result
-                break
+        # Tier 1 — SAPL API. Cheap (~1s), no AI, structured fields.
+        camara_url = urls.get("camara_url")
+        if camara_url and str(camara_url) != "nan":
+            logger.info(f"  SAPL probe: {camara_url}")
+            t_sapl = time.perf_counter()
+            sapl_result = fetch_parlamentares(camara_url)
+            sapl_elapsed = time.perf_counter() - t_sapl
+            if sapl_result.reachable:
+                match = match_parlamentar(name, sapl_result.parlamentares)
+                if match:
+                    sapl_email = (match.email or "").strip() or None
+                    sapl_tel = _pick_telefone(match) or None
+                    logger.info(
+                        f"  SAPL match: {match.nome_parlamentar!r} "
+                        f"email={sapl_email or '-'} telefone={sapl_tel or '-'} ({sapl_elapsed:.1f}s)"
+                    )
+                    if sapl_email or sapl_tel:
+                        email = sapl_email
+                        telefone = sapl_tel
+                        source_url = sapl_result.base_url
+                        source = "sapl"
+                else:
+                    logger.info(f"  SAPL reachable but no name match ({sapl_elapsed:.1f}s)")
+            else:
+                logger.debug(f"  SAPL unreachable ({sapl_elapsed:.1f}s)")
+
+        # Tier 2 — AI crawler. Falls back when SAPL did not yield contact info.
+        if not email and not telefone:
+            for url in candidates:
+                key = url.rstrip("/")
+                if key in dead_urls:
+                    entry = dead_urls[key]
+                    logger.warning(f"  Skipping dead URL ({entry['error_type']}, {entry['count']}x since {entry['first_seen']}): {url}")
+                    had_error = True
+                    continue
+
+                logger.info(f"  Trying: {url}")
+                try:
+                    result = crawl_for_email(url, name, model, decision_log=decision_log)
+                except Exception as e:
+                    logger.error(f"  Error crawling {url}: {e}")
+                    record_dead_url(DEAD_URLS_PATH, url, e, dead_urls)
+                    had_error = True
+                    continue
+
+                if result:
+                    email, source_url = result
+                    source = "crawler"
+                    break
 
         elapsed = time.perf_counter() - t_start
 
-        if email:
-            write_result(results_path, seq, email, "found", source_url)
-            logger.info(f"  → found: {email} ({elapsed:.1f}s)")
+        if email or telefone:
+            write_result(results_path, seq, email, "found", source_url, telefone=telefone, source=source)
+            logger.info(f"  → found: email={email or '-'} telefone={telefone or '-'} via {source} ({elapsed:.1f}s)")
         elif had_error:
             write_result(results_path, seq, None, "error")
             logger.info(f"  → error ({elapsed:.1f}s)")
