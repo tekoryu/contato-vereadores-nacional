@@ -78,15 +78,15 @@ def pick_best_link(
     n = len(links)
     numbered = "\n".join(f"{i + 1}. {l['text']}" for i, l in enumerate(links))
     prompt = (
-        f'You are navigating a Brazilian municipal chamber website looking for the contact email of "{politician_name}".\n'
-        f'Below is a numbered list of links on the current page. There are {n} links, numbered 1 to {n}.\n\n'
+        f'Você está navegando em um site de câmara municipal brasileira buscando o e-mail de contato de "{politician_name}".\n'
+        f'Abaixo está uma lista numerada de links da página atual. São {n} links, numerados de 1 a {n}.\n\n'
         f'{numbered}\n\n'
-        f'Choose the single best link to follow next. Prefer in this order:\n'
-        f'1. A link that goes directly to this specific politician\'s profile or contact page.\n'
-        f'2. A link to a page that lists all councillors (vereadores, parlamentares) where you can then find this politician.\n'
-        f'Do NOT choose: login or authentication pages, digital signature or document validation services, '
-        f'social media profiles, or external service providers unrelated to the chamber.\n'
-        f'If none seems useful, use 0.'
+        f'Escolha o único link mais promissor a seguir. Prefira nesta ordem:\n'
+        f'1. Um link que vá diretamente ao perfil ou página de contato deste(a) vereador(a) com o nome exato "{politician_name}".\n'
+        f'2. Um link para uma página que liste todos os vereadores, onde você possa encontrar este(a) político(a).\n'
+        f'NÃO escolha: páginas de login ou autenticação, serviços de assinatura digital ou validação de documentos, '
+        f'perfis em redes sociais, ou prestadores de serviços externos sem relação com a câmara.\n'
+        f'Se nenhum parecer útil, use 0.'
     )
 
     logger.debug(f"pick_best_link: {n} links → model {model}")
@@ -102,7 +102,7 @@ def pick_best_link(
     )
     elapsed = time.perf_counter() - t0
 
-    data = json.loads(response.message.content)  # pyright: ignore[reportOptionalMemberAccess]
+    data = json.loads(response.message.content)  # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
     idx = data["link_number"] - 1
     if 0 <= idx < n:
         result_href = links[idx]["href"]
@@ -141,13 +141,13 @@ def identify_email(
 
     email_list = "\n".join(f"- {e}" for e in emails)
     prompt = (
-        f'You are given a list of email addresses found on a Brazilian municipal chamber website.\n'
-        f'Your task is to identify the personal contact email for the politician named "{politician_name}".\n\n'
-        f'Emails found:\n{email_list}\n\n'
-        f'Rules:\n'
-        f'- Only return an email if it clearly belongs to this specific politician (e.g. their name appears in it).\n'
-        f'- Ignore generic institutional emails such as press, media, ouvidoria, contato, secretaria, etc.\n'
-        f'- If no email clearly belongs to this politician, set email to null.'
+        f'Você recebeu uma lista de endereços de e-mail encontrados em um site de câmara municipal brasileira.\n'
+        f'Sua tarefa é identificar o e-mail de contato pessoal do(a) vereador(a) "{politician_name}".\n\n'
+        f'E-mails encontrados:\n{email_list}\n\n'
+        f'Regras:\n'
+        f'- Retorne um e-mail apenas se ele claramente pertencer a este(a) vereador(a) específico(a) (ex.: o nome dele(a) aparece no endereço).\n'
+        f'- Ignore e-mails institucionais genéricos como imprensa, mídia, ouvidoria, contato, secretaria, etc.\n'
+        f'- Se nenhum e-mail claramente pertencer a este(a) vereador(a), defina email como null.'
     )
 
     logger.debug(f"identify_email: {len(emails)} candidates for {politician_name}")
@@ -163,7 +163,7 @@ def identify_email(
     )
     elapsed = time.perf_counter() - t0
 
-    data = json.loads(response.message.content)  # pyright: ignore[reportOptionalMemberAccess]
+    data = json.loads(response.message.content)  # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
     email = data.get("email")
     if not email or str(email).lower() in ("null", "none", ""):
         email = None
