@@ -8,16 +8,10 @@ import pandas as pd
 
 from fetcher import crawl_for_email
 from logging_setup import DecisionLogger, setup_logging
-from sapl_client import fetch_parlamentares, match_parlamentar
 
 DEFAULT_INPUT = "data/silver/vereadores-completo.json"
 DEFAULT_RESULTS = "data/silver/results.jsonl"
 DEAD_URLS_PATH = "data/silver/dead_urls.json"
-
-
-def _pick_telefone(p) -> str:
-    """Prefer mobile, fall back to landline."""
-    return (p.telefone_celular or p.telefone or "").strip()
 
 
 def load_data(input_path: str) -> tuple[list[dict], dict]:
@@ -143,67 +137,36 @@ def run(input_path: str, results_path: str, model: str) -> None:
         logger.info(f"[{i+1}/{total}] {name} — {politician['municipio_nome']}")
 
         email: str | None = None
-        telefone: str | None = None
         source_url: str | None = None
-        source: str | None = None
         had_error = False
         t_start = time.perf_counter()
 
-        # Tier 1 — SAPL API. Cheap (~1s), no AI, structured fields.
-        camara_url = urls.get("camara_url")
-        if camara_url and str(camara_url) != "nan":
-            logger.info(f"  SAPL probe: {camara_url}")
-            t_sapl = time.perf_counter()
-            sapl_result = fetch_parlamentares(camara_url)
-            sapl_elapsed = time.perf_counter() - t_sapl
-            if sapl_result.reachable:
-                match = match_parlamentar(name, sapl_result.parlamentares)
-                if match:
-                    sapl_email = (match.email or "").strip() or None
-                    sapl_tel = _pick_telefone(match) or None
-                    logger.info(
-                        f"  SAPL match: {match.nome_parlamentar!r} "
-                        f"email={sapl_email or '-'} telefone={sapl_tel or '-'} ({sapl_elapsed:.1f}s)"
-                    )
-                    if sapl_email or sapl_tel:
-                        email = sapl_email
-                        telefone = sapl_tel
-                        source_url = sapl_result.base_url
-                        source = "sapl"
-                else:
-                    logger.info(f"  SAPL reachable but no name match ({sapl_elapsed:.1f}s)")
-            else:
-                logger.debug(f"  SAPL unreachable ({sapl_elapsed:.1f}s)")
+        for url in candidates:
+            key = url.rstrip("/")
+            if key in dead_urls:
+                entry = dead_urls[key]
+                logger.warning(f"  Skipping dead URL ({entry['error_type']}, {entry['count']}x since {entry['first_seen']}): {url}")
+                had_error = True
+                continue
 
-        # Tier 2 — AI crawler. Falls back when SAPL did not yield contact info.
-        if not email and not telefone:
-            for url in candidates:
-                key = url.rstrip("/")
-                if key in dead_urls:
-                    entry = dead_urls[key]
-                    logger.warning(f"  Skipping dead URL ({entry['error_type']}, {entry['count']}x since {entry['first_seen']}): {url}")
-                    had_error = True
-                    continue
+            logger.info(f"  Trying: {url}")
+            try:
+                result = crawl_for_email(url, name, model, decision_log=decision_log)
+            except Exception as e:
+                logger.error(f"  Error crawling {url}: {e}")
+                record_dead_url(DEAD_URLS_PATH, url, e, dead_urls)
+                had_error = True
+                continue
 
-                logger.info(f"  Trying: {url}")
-                try:
-                    result = crawl_for_email(url, name, model, decision_log=decision_log)
-                except Exception as e:
-                    logger.error(f"  Error crawling {url}: {e}")
-                    record_dead_url(DEAD_URLS_PATH, url, e, dead_urls)
-                    had_error = True
-                    continue
-
-                if result:
-                    email, source_url = result
-                    source = "crawler"
-                    break
+            if result:
+                email, source_url = result
+                break
 
         elapsed = time.perf_counter() - t_start
 
-        if email or telefone:
-            write_result(results_path, seq, email, "found", source_url, telefone=telefone, source=source)
-            logger.info(f"  → found: email={email or '-'} telefone={telefone or '-'} via {source} ({elapsed:.1f}s)")
+        if email:
+            write_result(results_path, seq, email, "found", source_url, source="crawler")
+            logger.info(f"  → found: email={email} via crawler ({elapsed:.1f}s)")
         elif had_error:
             write_result(results_path, seq, None, "error")
             logger.info(f"  → error ({elapsed:.1f}s)")
