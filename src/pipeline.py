@@ -1,16 +1,27 @@
+import argparse
+import datetime
 import json
 import os
-import sys
+import time
 
 import pandas as pd
 
 from fetcher import crawl_for_email
+from logging_setup import DecisionLogger, setup_logging
+from sapl_client import fetch_parlamentares, match_parlamentar
 
-RESULTS_PATH = "data/silver/results.jsonl"
+DEFAULT_INPUT = "data/silver/vereadores-completo.json"
+DEFAULT_RESULTS = "data/silver/results.jsonl"
+DEAD_URLS_PATH = "data/silver/dead_urls.json"
 
 
-def load_data() -> tuple[list[dict], dict]:
-    with open("data/silver/vereadores-completo.json") as f:
+def _pick_telefone(p) -> str:
+    """Prefer mobile, fall back to landline."""
+    return (p.telefone_celular or p.telefone or "").strip()
+
+
+def load_data(input_path: str) -> tuple[list[dict], dict]:
+    with open(input_path) as f:
         politicians = json.load(f)
 
     prefeituras = pd.read_csv("data/silver/prefeituras.csv")
@@ -23,31 +34,90 @@ def load_data() -> tuple[list[dict], dict]:
     return politicians, url_map
 
 
-def load_processed_ids() -> set:
-    if not os.path.exists(RESULTS_PATH):
+def load_processed_ids(results_path: str) -> set:
+    if not os.path.exists(results_path):
         return set()
 
     processed = set()
-    with open(RESULTS_PATH) as f:
+    with open(results_path) as f:
         for line in f:
             record = json.loads(line)
             processed.add(record["candidato_seq"])
     return processed
 
 
-def write_result(candidato_seq: int, email: str | None, status: str) -> None:
-    with open(RESULTS_PATH, "a") as f:
-        record = {"candidato_seq": candidato_seq, "email": email, "status": status}
-        f.write(json.dumps(record) + "\n")
+def write_result(
+    results_path: str,
+    candidato_seq: int,
+    email: str | None,
+    status: str,
+    source_url: str | None = None,
+    *,
+    telefone: str | None = None,
+    source: str | None = None,
+) -> None:
+    with open(results_path, "a") as f:
+        record = {
+            "candidato_seq": candidato_seq,
+            "email": email,
+            "telefone": telefone,
+            "source_url": source_url,
+            "source": source,
+            "status": status,
+        }
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-def run(model: str = "qwen2.5:14b") -> None:
-    politicians, url_map = load_data()
-    processed = load_processed_ids()
+def load_dead_urls(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def record_dead_url(path: str, url: str, error: Exception, dead_urls: dict) -> None:
+    key = url.rstrip("/")
+    today = str(datetime.date.today())
+
+    msg = str(error)
+    if "ERR_NAME_NOT_RESOLVED" in msg:
+        error_type = "dns_error"
+    elif "Timeout" in msg:
+        error_type = "timeout"
+    elif "Download is starting" in msg:
+        error_type = "download"
+    else:
+        error_type = "other"
+
+    if key in dead_urls:
+        dead_urls[key]["count"] += 1
+        dead_urls[key]["last_seen"] = today
+        dead_urls[key]["error_type"] = error_type
+    else:
+        dead_urls[key] = {
+            "error_type": error_type,
+            "first_seen": today,
+            "last_seen": today,
+            "count": 1,
+        }
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(dead_urls, f, indent=2, ensure_ascii=False)
+
+
+def run(input_path: str, results_path: str, model: str) -> None:
+    logger = setup_logging()
+    decision_log = DecisionLogger()
+    dead_urls = load_dead_urls(DEAD_URLS_PATH)
+
+    politicians, url_map = load_data(input_path)
+    processed = load_processed_ids(results_path)
 
     total = len(politicians)
     skipped = len(processed)
-    print(f"Total: {total} | Already processed: {skipped} | Remaining: {total - skipped}")
+    logger.info(f"Input: {input_path} | Results: {results_path} | Model: {model}")
+    logger.info(f"Total: {total} | Already processed: {skipped} | Remaining: {total - skipped}")
+    logger.info(f"Dead URL cache: {len(dead_urls)} entries")
 
     for i, politician in enumerate(politicians):
         seq = politician["candidato_seq"]
@@ -66,34 +136,86 @@ def run(model: str = "qwen2.5:14b") -> None:
         candidates = [u for u in candidates if u and str(u) != "nan"]
 
         if not candidates:
-            print(f"  [{i+1}/{total}] No URLs for {politician['municipio_nome']}, skipping.")
-            write_result(seq, None, "no_url")
+            logger.warning(f"[{i+1}/{total}] No URLs for {politician['municipio_nome']}, skipping.")
+            write_result(results_path, seq, None, "no_url")
             continue
 
-        print(f"\n[{i+1}/{total}] {name} — {politician['municipio_nome']}")
+        logger.info(f"[{i+1}/{total}] {name} — {politician['municipio_nome']}")
 
-        email = None
+        email: str | None = None
+        telefone: str | None = None
+        source_url: str | None = None
+        source: str | None = None
         had_error = False
-        for url in candidates:
-            print(f"  Trying: {url}")
-            try:
-                email = crawl_for_email(url, name, model)
-            except Exception as e:
-                print(f"  Error: {e}")
-                had_error = True
-                break
-            if email:
-                break
+        t_start = time.perf_counter()
 
-        if email:
-            write_result(seq, email, "found")
+        # Tier 1 — SAPL API. Cheap (~1s), no AI, structured fields.
+        camara_url = urls.get("camara_url")
+        if camara_url and str(camara_url) != "nan":
+            logger.info(f"  SAPL probe: {camara_url}")
+            t_sapl = time.perf_counter()
+            sapl_result = fetch_parlamentares(camara_url)
+            sapl_elapsed = time.perf_counter() - t_sapl
+            if sapl_result.reachable:
+                match = match_parlamentar(name, sapl_result.parlamentares)
+                if match:
+                    sapl_email = (match.email or "").strip() or None
+                    sapl_tel = _pick_telefone(match) or None
+                    logger.info(
+                        f"  SAPL match: {match.nome_parlamentar!r} "
+                        f"email={sapl_email or '-'} telefone={sapl_tel or '-'} ({sapl_elapsed:.1f}s)"
+                    )
+                    if sapl_email or sapl_tel:
+                        email = sapl_email
+                        telefone = sapl_tel
+                        source_url = sapl_result.base_url
+                        source = "sapl"
+                else:
+                    logger.info(f"  SAPL reachable but no name match ({sapl_elapsed:.1f}s)")
+            else:
+                logger.debug(f"  SAPL unreachable ({sapl_elapsed:.1f}s)")
+
+        # Tier 2 — AI crawler. Falls back when SAPL did not yield contact info.
+        if not email and not telefone:
+            for url in candidates:
+                key = url.rstrip("/")
+                if key in dead_urls:
+                    entry = dead_urls[key]
+                    logger.warning(f"  Skipping dead URL ({entry['error_type']}, {entry['count']}x since {entry['first_seen']}): {url}")
+                    had_error = True
+                    continue
+
+                logger.info(f"  Trying: {url}")
+                try:
+                    result = crawl_for_email(url, name, model, decision_log=decision_log)
+                except Exception as e:
+                    logger.error(f"  Error crawling {url}: {e}")
+                    record_dead_url(DEAD_URLS_PATH, url, e, dead_urls)
+                    had_error = True
+                    continue
+
+                if result:
+                    email, source_url = result
+                    source = "crawler"
+                    break
+
+        elapsed = time.perf_counter() - t_start
+
+        if email or telefone:
+            write_result(results_path, seq, email, "found", source_url, telefone=telefone, source=source)
+            logger.info(f"  → found: email={email or '-'} telefone={telefone or '-'} via {source} ({elapsed:.1f}s)")
         elif had_error:
-            write_result(seq, None, "error")
+            write_result(results_path, seq, None, "error")
+            logger.info(f"  → error ({elapsed:.1f}s)")
         else:
-            write_result(seq, None, "not_found")
-        print(f"  → {'found: ' + email if email else 'not_found'}")
+            write_result(results_path, seq, None, "not_found")
+            logger.info(f"  → not_found ({elapsed:.1f}s)")
 
 
 if __name__ == "__main__":
-    model = sys.argv[1] if len(sys.argv) > 1 else "qwen2.5:14b"
-    run(model)
+    parser = argparse.ArgumentParser(description="Crawl for politician emails.")
+    parser.add_argument("--input", default=DEFAULT_INPUT, help="Path to politicians JSON file.")
+    parser.add_argument("--results", default=DEFAULT_RESULTS, help="Path to JSONL results file.")
+    parser.add_argument("--model", default="qwen2.5:14b", help="Ollama model to use.")
+    args = parser.parse_args()
+    run(args.input, args.results, args.model)

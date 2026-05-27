@@ -1,0 +1,33 @@
+{
+  "theme": "tokyo-night",
+  "display": {
+    "padding": 1,
+    "style": "powerline",
+    "charset": "unicode",
+    "colorCompatibility": "auto",
+    "autoWrap": true,
+    "lines": [
+      {
+        "segments": {
+          "directory": {
+            "enabled": true,
+            "style": "fish"
+          },
+          "model": {
+            "enabled": true
+          },
+          "session": {
+            "enabled": false,
+            "type": "tokens"
+          },
+          "context": {
+            "enabled": true,
+            "showPercentageOnly": false,
+            "displayStyle": "text",
+            "autocompactBuffer": 20000
+          }
+        }
+      }
+    ]
+  }
+}

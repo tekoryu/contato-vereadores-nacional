@@ -1,0 +1,652 @@
+╭─── Claude Code v2.1.150 ─────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│               Welcome back Anderson!               │ started                 │
+│                                                    │ Run /init to create a … │
+│                      ▗ ▗   ▖ ▖                     │ ─────────────────────── │
+│                                                    │ What's new              │
+│                        ▘▘ ▝▝                       │ Internal infrastructur… │
+│     Opus 4.7 · Claude Pro · chedou@gmail.com's     │ `/usage` now shows a p… │
+│     Organization                                   │ `/diff` detail view ca… │
+│       ~/Projects/contato-vereadores-nacional       │ /release-notes for more │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+  Using Opus 4.7 (from .claude/settings.json) · /model to change
+
+❯ analyze today's logfile                                                       
+
+  Searched for 7 patterns, read 2 files, listed 1 directory (ctrl+o to expand)
+
+⏺ Not relevant — this is a one-shot analysis. Here's the summary.
+
+  Today's run (run-2026-05-27.log) — 2026-05-27 11:45 → 12:10 (~25 min)
+
+  Pipeline: vereadores-sample.json → results-sample5.jsonl · model qwen2.5:14b ·
+   26 politicians (one per state).
+
+  Outcomes
+
+  ┌──────────────┬──────────┐
+  │    Result    │  Count   │
+  ├──────────────┼──────────┤
+  │ ✅ found     │ 2 (8%)   │
+  ├──────────────┼──────────┤
+  │ ❌ not_found │ 12 (46%) │
+  ├──────────────┼──────────┤
+  │ ⚠️ error     │ 12 (46%) │
+  └──────────────┴──────────┘
+
+  Emails found:
+  - gabinetemoacirjunior@gmail.com — MOACIR JUNIOR (Rio Branco) in 30.6s
+  - rafaelboer@camarapiracicaba.sp.gov.br — RAFAEL BOER (Piracicaba) in 18.2s
+
+  Log levels
+
+  - DEBUG 4352 · INFO 960 · WARNING 10 · ERROR 3
+
+  Errors (Playwright timeouts at 15s)
+
+  - https://penedo.al.gov.br/ (Penedo)
+  - https://altos.pi.leg.br/ (Altos)
+  - https://presidentekennedy.to.gov.br/ (Presidente Kennedy)
+
+  Warnings — dead-URL cache skips (9 unique hosts)
+
+  DNS errors: transparencia.camaraitapiranga.am.gov.br, mamonas.mg.gov.br,
+  camaraaltoalegre.com.br.
+  Timeouts: io.org.br/.../itaguacudabahia/camara, senadorcanedo.go.gov.br,
+  passagem.pb.gov.br, teresopolis.rj.gov.br, montenegro.ro.gov.br.
+  Download failure: camaramatinhos.pr.gov.br.
+  Plus one AI mis-pick: at depth 2/3 it tried to navigate to a .pdf on
+  altoalegre.rr.gov.br.
+
+  Observations
+
+  - Hit rate is poor (8%). Most sites either time out or the AI can't match a
+  candidate email to the politician — typical case (politician #1) had only 1
+  email on the landing page and AI returned None anyway.
+  - Per-politician latency is high (estimating ~60s avg from the → lines): the
+  bulk is Ollama calls (identify_email ~10s, pick_best_link ~6s each, repeated
+  across crawl depth).
+  - The dead-URL cache is working — 9 hosts skipped without spending time,
+  carried over from 2026-05-26.
+  - decisions-2026-05-27.jsonl has 193 AI-decision records to inspect if you
+  want to see why the AI rejected emails / which links it chose.
+
+  Want me to dig into a specific failure mode (e.g. why not_found dominates on
+  .leg.br sites, or pull decisions-*.jsonl stats)?
+
+✻ Cogitated for 1m 4s
+
+❯ this strategy looks like lacking efficiency. I not even sure about the        
+  quality of these urls anymore. Search internet for best approaches to         
+  retrieve these values.                                                        
+
+⏺ Web Search("como obter email vereadores câmara municipal Brasil API dados
+            abertos 2026")
+  ⎿  Did 1 search in 7s
+
+⏺ Web Search("Brasil vereadores contato email dataset open data Interlegis
+            SAPL")
+  ⎿  Did 1 search in 7s
+
+⏺ Web Search("scraping Brazilian city council websites email extraction best
+            practices")
+  ⎿  Did 1 search in 9s
+
+⏺ Web Search(""câmara municipal" "vereadores" site:leg.br email contato lista")
+  ⎿  Did 1 search in 5s
+
+⏺ Web Search("SAPL Interlegis API parlamentares emails endpoint JSON")
+  ⎿  Did 1 search in 6s
+
+⏺ Web Search("sigi.interlegis.leg.br casas atendidas CSV email vereador")
+  ⎿  Did 1 search in 6s
+
+⏺ Fetch(https://sigi.interlegis.leg.br/servicos/casasatendidas/?format=csv)
+  ⎿  Received 1.3MB (200 OK)
+
+⏺ Web Search("SAPL "/api/parlamentares/parlamentar" email endpoint OpenAPI
+            swagger")
+  ⎿  Did 1 search in 6s
+
+⏺ Web Search(""portalmodelo" "@@pl-json" parlamentar email JSON")
+  ⎿  Did 1 search in 7s
+
+⏺ Web Search(""panorama do legislativo municipal" datasenado dataset download
+            vereador")
+  ⎿  Did 1 search in 6s
+
+⏺ Reminder noted but not applicable — this is a quick research task. Let me
+  check one last critical thing.
+
+⏺ Fetch(https://sapl.al.pi.leg.br/api/schema/swagger-ui/)
+  ⎿  Received 1.1KB (200 OK)
+
+⏺ Web Search(""sapl" "/api/parlamentares" json email filter cidade")  ⎿  Did 1 search in 6s
+
+⏺ Bash(curl -s -m 10
+      "https://sapl.al.pi.leg.br/api/parlamentares/parlamentar/?format=json" |
+      head -c 2000)
+  ⎿  {"pagination":{"links":{"next":"http://sapl.al.pi.leg.br/api/parlament
+     ares/parlamentar/?format=json&page=2","previous":null},"previous_page"
+     :null,"next_page":2,"start_index":1,"end_index":10,"total_entries":309
+     … +26 lines (ctrl+o to expand)
+
+⏺ Bash(curl -s -m 10 "https://sapl.joaopessoa.pb.leg.br/api/parlamentares/parlam
+      entar/?format=json" | head -c 2000)
+  ⎿  {"pagination":{"links":{"next":"http://sapl.joaopessoa.pb.leg.br/api/p
+     arlamentares/parlamentar/?format=json&page=2","previous":null},"previo
+     us_page":null,"next_page":2,"start_index":1,"end_index":10,"total_entr
+     … +26 lines (ctrl+o to expand)
+
+⏺ Confirmed: SAPL exposes a standardized public API. Here's the strategy shift.
+
+  The big finding
+
+  Every SAPL-based câmara (most municipalities) exposes a public, paginated JSON
+   API:
+
+  GET https://sapl.<municipio>.<uf>.leg.br/api/parlamentares/parlamentar/?format
+  =json
+
+  Returns a structured list with exactly the fields you want, no crawling, no
+  AI:
+
+  {"nome_completo": "...", "nome_parlamentar": "...",
+   "email": "...", "telefone": "...", "telefone_celular": "...",
+   "endereco_web": "...", "ativo": true, ...}
+
+  I tested two random instances live (sapl.al.pi.leg.br,
+  sapl.joaopessoa.pb.leg.br) — both responded with the same schema. SAPL is
+  built by Senado/Interlegis and deployed to thousands of municipalities, with
+  the OpenAPI schema at /api/schema/swagger-ui/.
+
+  Recommended pipeline (replaces the current AI crawler for ~80% of cases)
+
+  Tier 1 — Canonical URL directory (one-shot, replaces your input file)
+  Download the SIGI master CSV:
+  https://sigi.interlegis.leg.br/servicos/casasatendidas/?format=csv (or per-UF,
+   e.g. /PR/?format=csv). Columns include casa_legislativa__nome,
+  municipio__nome, uf__sigla, email, telefone, url. This gives you the
+  authoritative chamber URL and an institutional email for every câmara —
+  exactly what's blowing up today with timeouts on guessed .leg.br / .gov.br
+  URLs.
+
+  Tier 2 — SAPL API (structured, ~100ms per municipality)
+  For chambers running SAPL (detect by sapl.<host> subdomain or by probing the
+  URL from the SIGI CSV), hit
+  /api/parlamentares/parlamentar/?ativo=true&format=json. Paginate. Zero AI
+  cost, zero Playwright.
+
+  Tier 3 — Portal Modelo @@pl-json / @@transparency-json
+  For chambers on the Plone-based Portal Modelo, these views return parlamentar
+  + email in JSON. Standard endpoint at the site root.
+
+  Tier 4 — Câmara dos Deputados / Senado APIs (out of scope for vereadores, but
+  worth knowing): dadosabertos.camara.leg.br and
+  legis.senado.leg.br/dadosabertos cover federal layer with full schemas.
+
+  Tier 5 — Targeted HTML scrape (only when tiers 1–3 fail)
+  Most câmaras have a predictable /vereadores/, /institucional/contato, or
+  /transparencia/dados-abertos page. Skip the Playwright-driven AI navigation
+  entirely — fetch with httpx and regex-extract mailto: + neighboring text. The
+  current AI navigation is paying ~6–10s per Ollama call × 2–3 hops × 26
+  vereadores, which is the bulk of your 25-min runtime.
+
+  Tier 6 — Current AI crawler as last resort. Today it produced 2 hits in 26
+  attempts (8%); reserve it for the long tail.
+
+  Why today's run looked so bad
+
+  - Bad input URLs. 12/26 timed out or hit dead-URL cache. Today's input was
+  guessed URLs (http://www.riobranco.ac.leg.br/, https://altos.pi.leg.br/).
+  SIGI's CSV is the canonical source — use it instead of generating URLs.
+  - AI is the wrong tool for this shape of data. When the page has 1 candidate
+  email and the AI returns None (politician #1, log line 11:45:48), the issue is
+   that institutional emails (e.g. gabinete@camaramunicipal...) ARE the right
+  answer for "how do I contact this vereador" but the prompt is asking for a
+  personal match. The SAPL API sidesteps this entirely by returning the
+  vereador's registered email directly.
+  - Playwright 15s timeout is too tight for slow .gov.br infra (3 hard errors
+  today). But you mostly don't need a browser — these are static HTML or JSON.
+
+  Suggested next step
+
+  Want me to:
+  1. Pull the SIGI CSV and rebuild data/silver/vereadores-sample.json with
+  authoritative URLs, then
+  2. Prototype a sapl_client.py that hits /api/parlamentares/parlamentar/ and
+  reports coverage across your 26-row sample?
+
+  That would let you measure the new hit rate against today's 8% before touching
+   the existing crawler.
+
+  Sources
+
+  - SIGI — Casas Atendidas (CSV)
+  (https://sigi.interlegis.leg.br/servicos/casasatendidas/?format=csv)
+  - SAPL Swagger example (Piauí AL)
+  (https://sapl.al.pi.leg.br/api/schema/swagger-ui/)
+  - SAPL on GitHub (https://github.com/interlegis/sapl)
+  - interlegis.portalmodelo.pl (@@pl-json)
+  (https://github.com/interlegis/interlegis.portalmodelo.pl)
+  - Panorama do Legislativo Municipal — DataSenado
+  (https://www.senado.leg.br/institucional/datasenado/panorama/)
+  - Câmara dos Deputados — Dados Abertos
+  (https://dadosabertos.camara.leg.br/swagger/api.html)
+  - Senado — Dados Abertos
+  (https://legis.senado.leg.br/dadosabertos/api-docs/swagger-ui/index.html)
+
+✻ Churned for 2m 17s
+
+❯ do it                                                                         
+
+⏺ Let me get the lay of the land first.
+
+  Read 3 files, listed 1 directory (ctrl+o to expand)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Bash(curl -s -m 60
+      "https://sigi.interlegis.leg.br/servicos/casasatendidas/?format=csv" -o
+      data/silver/sigi-casas.csv && wc -l data/silver/sigi-casas.csv && head
+      -2…)
+  ⎿      5944 data/silver/sigi-casas.csv
+     casa_legislativa__cnpj,casa_legislativa__nome,casa_legislativa__tipo__
+     nome,casa_legislativa__logradouro,casa_legislativa__bairro,casa_legisl
+     … +7 lines (ctrl+o to expand)
+
+⏺ Bash(python3 -c "
+      import csv…)
+  ⎿  total rows: 5943
+     rows with email: 5937
+     rows with url: 5940
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(python3 -c "
+      import json, csv, unicodedata…)
+  ⎿  name                                     uf  municipio
+      sigi? sapl? url
+     MOACIR JUNIOR                            AC  Rio Branco
+     … +35 lines (ctrl+o to expand)
+
+⏺ Bash(python3 -c "
+      import csv, unicodedata…)
+  ⎿  AM/itapiranga: NOT FOUND. nearby: []
+     BA/itaguacu da bahia: NOT FOUND. nearby: ['Itagibá', 'Itagibá', 'Itagi
+     bá']
+     … +7 lines (ctrl+o to expand)
+⏺ Write(src/sapl_client.py)
+  ⎿  Wrote 165 lines to src/sapl_client.py
+       2 """SAPL parlamentar client.
+       3 Many Brazilian câmaras municipais run SAPL (Sistema de Apoio ao 
+       4 Legislativo) and expose a public JSON API at:
+       5 
+       6     https://sapl.<casa-host>/api/parlamentares/parlamentar/?form
+       7 at=json
+       8 The response is paginated and each result carries structured fie
+       9 `email`, `telefone`, `nome_parlamentar`, `nome_completo`, `ativo
+         `, etc.
+      10 """
+     … +181 lines (ctrl+o to expand)
+
+⏺ Bash(python3 src/sapl_client.py riobranco.ac.leg.br "MOACIR JUNIOR")
+  ⎿  base_url=https://sapl.riobranco.ac.leg.br reachable=True count=187
+     match: 'Moacir Júnior' email='gabinetemoacirjunior@gmail.com' active=T
+     rue
+
+⏺ First probe nails it — same email as the current pipeline, in a fraction of
+  the time. Now the full sweep.
+
+⏺ Write(scripts/sapl_coverage.py)
+  ⎿  Wrote 111 lines to scripts/sapl_coverage.py
+       1 """Coverage probe for SAPL API across the 26-row sample.
+       2 
+       3 Runs per politician:
+       4   1. Look up câmara URL via SIGI index (UF + município name).
+       5   2. Fall back to prefeituras.csv camara_url if no SIGI hit.
+       6   3. Probe SAPL API at https://sapl.<host> and https://<host>.
+       7   4. Try to match politician by name; report email if found.
+       8 """
+       9 
+      10 from __future__ import annotations
+     … +115 lines (ctrl+o to expand)
+
+⏺ Bash(python3 scripts/sapl_coverage.py 2>&1)
+  ⎿  ✓ [ 1/26] MOACIR JUNIOR                  AC Rio Branco             src
+     =sigi         sapl=Y parl=187 match=Moacir Júnior             email=ga
+     binetemoacirjunior@gmail.com (4.5s)
+     … +60 lines (ctrl+o to expand)
+  ⎿  (timeout 5m)
+
+⏺ 15% hit rate vs the AI's 8%, in ~85s vs ~25min. But SAPL only reached 5/26.
+  Let me see if I can squeeze more by probing path-based SAPL deployments (some
+  chambers host SAPL at /sapl/ instead of sapl.<host>).
+
+⏺ Bash(for host in vitoria.es.leg.br macapa.ap.leg.br imperatriz.ma.leg.br
+      portoalegre.rs.leg.br; do
+        echo "=== $host ==="…)
+  ⎿  === vitoria.es.leg.br ===
+     (eval):7: command not found: tr
+       (eval):6: command not found: curl |  | https://vitoria.es.leg.br/api
+     … +33 lines (ctrl+o to expand)
+
+⏺ Bash(python3 << 'EOF'
+      import urllib.request, urllib.error, json…)
+  ⎿  === vitoria.es.leg.br ===
+       ERR  URLError        https://sapl.vitoria.es.leg.br/api/parlamentare
+     s/parlamentar/?format=json
+     … +41 lines (ctrl+o to expand)
+  ⎿  (timeout 3m)
+
+⏺ The conventional SAPL endpoints are genuinely not exposed for most chambers —
+  19% looks like the real ceiling. Let me finalize the report.
+
+⏺ Bash(python3 << 'EOF'
+      import json…)
+  ⎿  politician                   AI pipeline
+          | SAPL probe
+     ----------------------------------------------------------------------
+     … +48 lines (ctrl+o to expand)
+
+⏺ Done — results
+
+  Coverage on the same 26-row sample:
+
+  ┌──────────────┬────────────────────────────┬────────────┬──────────┐
+  │              │    AI pipeline (today)     │ SAPL probe │ Combined │
+  ├──────────────┼────────────────────────────┼────────────┼──────────┤
+  │ Emails found │ 2 (8%)                     │ 4 (15%)    │ 5 (19%)  │
+  ├──────────────┼────────────────────────────┼────────────┼──────────┤
+  │ Wall-clock   │ ~25 min                    │ ~85 s      │ —        │
+  ├──────────────┼────────────────────────────┼────────────┼──────────┤
+  │ Cost         │ Ollama × hundreds of calls │ Free       │ —        │
+  └──────────────┴────────────────────────────┴────────────┴──────────┘
+
+  SAPL gains over AI (3 new emails, all things AI marked as not_found / error):
+  - dr.neto@barradogarcas.mt.leg.br — DR. NETO (Barra do Garças)
+  - ver.joaopaulo@curraisnovos.rn.leg.br — JOÃO PAULO (Currais Novos)
+  - camarakennedy@hotmail.com — PAULO SERGIO BONILHA (Presidente Kennedy)
+
+  AI uniquely got 1: rafaelboer@camarapiracicaba.sp.gov.br (SAPL was unreachable
+   on camarapiracicaba.sp.gov.br).
+
+  1 overlap (same email): MOACIR JUNIOR — confirms SAPL is the same ground
+  truth, just ~30× faster.
+
+  What you got
+
+  - data/silver/sigi-casas.csv — 5,943 rows, 5,937 with email, 5,894 câmaras
+  municipais. Authoritative URL + institutional email for ~99% of Brazil's
+  chambers.
+  - src/sapl_client.py — minimal stdlib client. fetch_parlamentares(host)
+  paginates /api/parlamentares/parlamentar/?format=json over https://sapl.<host>
+   and https://<host>. match_parlamentar(name, list) does token-overlap
+  matching.
+  - scripts/sapl_coverage.py — the runner that produced the above table.
+  - data/silver/sapl-coverage-sample.jsonl — per-politician results.
+
+  What this tells us about strategy
+
+  1. SAPL is a free 15% lift, but not a replacement. Only ~19% of câmaras run a
+  public SAPL API on the conventional host (consistent with SIGI's 1103/5894 =
+  19% SAPL-tagged chambers). I tried path variants (/sapl/api/...) and the www.
+  prefix — no extra hits in this sample.
+  2. SAPL is strictly additive to the AI pipeline. Run it as Tier 1 before AI.
+  ~1s per municipality, no Ollama, no Playwright. Skip AI for the 15–19% it
+  resolves.
+  3. The bigger structural win is SIGI as your URL source. Today's "(error)"
+  outcomes (12/26) were mostly bad input URLs. SIGI gives you the authoritative
+  .leg.br host and an institutional email for 99% of câmaras — usable as a
+  guaranteed fallback contact even when no personal email is recoverable.
+  4. Don't bother with sapl.<host> variants beyond https://sapl.X and https://X
+  — exhaustive probing of /sapl/ paths added zero hits in spot checks.
+
+  Suggested next move
+
+  Wire sapl_client.fetch_parlamentares into pipeline.py as Tier 1: if a SAPL
+  match returns a non-empty email, write the result and skip the AI crawler
+  entirely for that row. That alone should ~halve runtime and bump the combined
+  hit rate from 8% → 19% on this sample. Want me to do that integration?
+
+✻ Sautéed for 6m 3s
+
+❯ what kind of info about a vereador is brought by this SAPL?                   
+
+⏺ Bash(python3 << 'EOF'
+      import urllib.request, json…)
+  ⎿  Total returned this page: 10 of 17
+
+     === Fields on a parlamentar object ===
+     … +19 lines (ctrl+o to expand)
+
+⏺ Bash(python3 << 'EOF'
+      # Explore related endpoints that link to a parlamentar…)
+  ⎿    ✓ /api/parlamentares/mandato/?format=json&parlamentar=7
+     total=2 keys=['id', '__str__', 'link_detail_backend', 'metadata', 'tip
+     o_causa_fim_mandato', 'data_inicio_mandato', 'data_fim_mandato', 'voto
+     … +20 lines (ctrl+o to expand)
+
+⏺ Here's everything SAPL gives you for a single vereador.
+
+  Per-parlamentar object (main endpoint)
+
+  GET /api/parlamentares/parlamentar/{id}/?format=json returns:
+
+  ┌──────────────────────┬────────┬────────────────────────────────────────┐
+  │        Field         │  Type  │  Example (Dr. Neto, Barra do Garças)   │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ id                   │ int    │ 7                                      │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ nome_completo        │ str    │ "Geralmino Alves Rodrigues Neto"       │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ nome_parlamentar     │ str    │ "Dr. Neto" (the display/campaign name) │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ sexo                 │ "M"/"F │ "M"                                    │
+  │                      │ "      │                                        │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ email                │ str    │ "dr.neto@barradogarcas.mt.leg.br"      │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ telefone             │ str    │ "(66) 3401-2484 Ramal 23"              │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ telefone_celular     │ str    │ ""                                     │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ endereco_web         │ URL    │ "https://www.facebook.com/geralmino.ne │
+  │                      │        │ to" (often a social link)              │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ numero_gab_parlament │ str    │ gabinete number (often empty)          │
+  │ ar                   │        │                                        │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ profissao            │ str    │ profession                             │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ locais_atuacao       │ str    │ freeform constituency / áreas de       │
+  │                      │        │ atuação                                │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ biografia            │ HTML   │ full bio (HTML markup)                 │
+  │                      │ string │                                        │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ ativo                │ bool   │ true if currently in office            │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ fotografia           │ URL    │ portrait JPG/PNG (absolute URL)        │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ cropping             │ str    │ "34,0,167,133" — crop box for the      │
+  │                      │        │ photo                                  │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ nivel_instrucao      │ int FK │ id into /nivel_instrucao/ lookup (e.g. │
+  │                      │        │  graduação, pós)                       │
+  ├──────────────────────┼────────┼────────────────────────────────────────┤
+  │ link_detail_backend  │ str    │ "/parlamentar/7" — path to the public  │
+  │                      │        │ profile page                           │
+  └──────────────────────┴────────┴────────────────────────────────────────┘
+
+  Linked endpoints (same SAPL host, joined by parlamentar id)
+
+  Endpoint: /api/parlamentares/mandato/?parlamentar={id}
+  What it gives you: One row per term: data_inicio_mandato, data_fim_mandato,
+    votos_recebidos, tipo_causa_fim_mandato. Dr. Neto has 2 mandates on record.
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/filiacao/?parlamentar={id}
+  What it gives you: Party history: partido, data, data_desfiliacao
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/coligacao/
+  What it gives you: Electoral coalition for the legislatura
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/composicaomesa/
+  What it gives you: Mesa Diretora positions held (presidente, secretário, etc.)
+
+    — joined via parlamentar + cargo + mesa_diretora
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/legislatura/
+  What it gives you: Term metadata (numero, data_inicio, data_fim, data_eleicao)
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/partido/
+  What it gives you: Party lookup table (sigla, nome, datas)
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/sessaolegislativa/
+  What it gives you: Sessions within a legislatura
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/dependente/
+  What it gives you: Officially declared dependents (usually empty)
+  ────────────────────────────────────────
+  Endpoint: /api/parlamentares/cargomesa/
+  What it gives you: Mesa role lookup table
+
+  What's notably absent
+
+  - Endereço residencial/CPF — not exposed (LGPD-sensitive, by design).
+  - Anything legislative beyond /parlamentares/ — but SAPL also exposes
+  /api/materia/, /api/sessao/, /api/norma/, etc. for proposições, sessions,
+  votes, and laws if you want to enrich.
+
+  For your current goal (contact emails)
+
+  The email field is the prize, and there's a useful bonus: endereco_web
+  frequently points to a Facebook/Instagram/personal site, which gives you a
+  second contact channel when email is empty (as it was for Paulinho do Cezinha
+  in your sample). Worth pulling into the result schema alongside email and
+  telefone.
+
+✻ Sautéed for 41s
+
+❯ ok, let's do the following first. Our @data/silver/prefeituras.csv has a      
+  legislative url but the one you brought looks more reliable. I want you to    
+  update this file with:                                                        
+  - the legislative url from @data/silver/sigi-casas.csv                        
+  - the legislative email from @data/silver/sigi-casas.csv                      
+⏺ Bash(python3 << 'EOF'
+      import csv…)
+  ⎿  prefeituras camara_url schemes: {'http': 1969, 'https': 2544, 'none':
+     1}
+     total rows: 5571
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(python3 << 'EOF'
+      import csv, unicodedata…)
+  ⎿    total           5571
+       sigi_hit        3096
+       url_updated     3096
+     … +3 lines (ctrl+o to expand)
+
+⏺ Bash(head -5 data/silver/prefeituras.csv && echo "---" && python3 -c "
+      import csv…)
+  ⎿  ibge_code,ibge_name,uf,prefeitura_url,camara_url,camara_email
+     1100015,Alta Floresta D'Oeste,RO,,https://altaflorestadoeste.ro.leg.br
+     ,administrativo@altaflorestadoeste.ro.leg.br
+     … +10 lines (ctrl+o to expand)
+
+⏺ Done. Here's what changed in data/silver/prefeituras.csv:
+
+  Schema: added new column camara_email (now 6 columns: ibge_code, ibge_name, 
+  uf, prefeitura_url, camara_url, camara_email).
+
+  Update stats:
+  - 5,571 municipalities total
+  - 3,096 (56%) matched SIGI by (uf, normalized município) — camara_url
+  overwritten with SIGI's canonical https://<host> form
+    - of which 301 were rows that previously had a blank camara_url
+  - 3,095 (56%) received a non-empty camara_email
+  - 2,475 (44%) had no SIGI hit — camara_url left as it was, camara_email is
+  blank
+  - After update: 4,815 rows have a camara_url, 3,095 have a camara_email, 756
+  still have neither
+
+  Quick spot check: Cacoal/RO now points to the canonical
+  https://cacoal.ro.leg.br (was cacoaltransparente.ro.gov.br-style guesses
+  elsewhere); Cabixi got its first email (contato@cabixi.ro.leg.br).
+
+  Want me to drop sigi-casas.csv (now redundant for this purpose) or keep it for
+   future re-syncs?
+
+✻ Baked for 51s
+
+❯ I am curious about the non-matching. Verify how many cities has in            
+  @data/silver/sigi-casas.csv. If it has more cities than matches, so we are    
+  loosing something in the process                                              
+
+⏺ Bash(python3 << 'EOF'
+      import csv, unicodedata…)
+  ⎿  sigi-casas rows (all):              5943
+     sigi-casas rows (Câmara Municipal): 5894
+     sigi-casas unique (uf, município):  3097
+     … +11 lines (ctrl+o to expand)
+
+⏺ Reminder noted but not applicable — quick diagnostic.
+
+  The matching is essentially perfect. The non-matches are a SIGI coverage
+  issue, not a process loss.
+
+  Findings
+
+  ┌────────────────────────────────────────────┬───────┐
+  │                                            │ Count │
+  ├────────────────────────────────────────────┼───────┤
+  │ Brazilian municipalities (prefeituras.csv) │ 5,571 │
+  ├────────────────────────────────────────────┼───────┤
+  │ sigi-casas.csv rows (total)                │ 5,943 │
+  ├────────────────────────────────────────────┼───────┤
+  │ sigi-casas rows tagged "Câmara Municipal"  │ 5,894 │
+  ├────────────────────────────────────────────┼───────┤
+  │ Unique (UF, município) in SIGI             │ 3,097 │
+  ├────────────────────────────────────────────┼───────┤
+  │ Matched (in both)                          │ 3,096 │
+  ├────────────────────────────────────────────┼───────┤
+  │ SIGI cities NOT in prefeituras             │ 1     │
+  ├────────────────────────────────────────────┼───────┤
+  │ Prefeituras cities NOT in SIGI             │ 2,475 │
+  └────────────────────────────────────────────┴───────┘
+
+  Why SIGI has 5,894 rows but only 3,097 unique cities: each câmara appears once
+   per service it uses (Domínio .LEG.br, SAPL, Portal Modelo, E-mail
+  Legislativo, etc.). Average ~1.9 services per câmara.
+
+  The single SIGI-only city is RR / São Luiz do Anauá — let me verify it's not a
+   name mismatch.
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+⏺ Confirmed: it's a name discrepancy. IBGE's official name is São Luiz / RR
+  (IBGE 1400605), SIGI uses the historical/colloquial São Luiz do Anauá. Same
+  city. I can apply a one-off correction.
+
+  Bottom line
+
+  The merge is essentially lossless — 3,096 of 3,097 unique SIGI câmaras matched
+   (99.97%).
+
+  The "non-matching" 2,475 cities aren't lost in our process — they're genuinely
+   absent from SIGI. SIGI only covers ~56% of Brazil's 5,570 municipalities
+  because Interlegis serves only the chambers that opted into one of its
+  programs (Domínio .LEG.br, SAPL, Portal Modelo, E-mail Legislativo, etc.). The
+   remaining 44% never appear in SIGI.
+
+  Want me to:
+  1. Apply the one-off override for São Luiz / RR → SIGI's São Luiz do Anauá / 
+  RR entry (recovers 1 row)?
+  2. Try to fill more of those 2,475 gaps from another source — e.g. the
+  existing camara_url in prefeituras (often .leg.br or .gov.br guesses) by
+  scraping the chamber's homepage for an institutional email?
+
+  Or leave it as-is — SIGI's 56% is a respectable floor for trustworthy data and
+   the rest can be handled by the AI crawler tier.
+
+✻ Sautéed for 44s
