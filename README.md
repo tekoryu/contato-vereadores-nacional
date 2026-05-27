@@ -36,6 +36,7 @@ contato-vereadores-nacional/
 │   └── ONBOARDING.md
 ├── scripts/                          # utilitários de dados (one-shot)
 │   ├── sapl_harvest.py               # colhe vereadores via API SAPL
+│   ├── backfill_sapl_results.py      # popula results.jsonl com hits do SAPL
 │   ├── sapl_coverage.py
 │   ├── sigi_gapfill.py
 │   ├── validate_urls.py
@@ -105,16 +106,23 @@ python src/pipeline.py \
   --model qwen2.5:14b
 ```
 
-### Coleta via API SAPL (one-shot, opcional)
+### Coleta via API SAPL (one-shot)
 
 Para câmaras que expõem a API SAPL, é mais barato puxar a lista de
-parlamentares direto do endpoint oficial em vez de rastrear o site:
+parlamentares direto do endpoint oficial em vez de rastrear o site. O fluxo
+recomendado antes de rodar o pipeline:
 
 ```bash
+# 1) Colhe parlamentares de todas as câmaras SAPL → vereadores-sapl.jsonl
 python scripts/sapl_harvest.py
+
+# 2) Backfill: casa os parlamentares SAPL com os vereadores-alvo e popula
+#    results.jsonl com email + telefone. O pipeline depois só rastreia o
+#    que sobrou.
+python scripts/backfill_sapl_results.py
 ```
 
-Anexa a `data/silver/vereadores-sapl.jsonl`; também é resumable.
+Ambos os scripts são resumable.
 
 ## Notas
 
