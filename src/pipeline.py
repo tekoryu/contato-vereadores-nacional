@@ -124,7 +124,9 @@ def run(input_path: str, results_path: str, model: str) -> None:
         urls = url_map.get(ibge_id)
 
         if not urls:
-            raise ValueError(f"No URL entry for ibge_id={ibge_id} ({name}, {politician['municipio_nome']})")
+            logger.warning(f"[{i+1}/{total}] No URL entry for ibge_id={ibge_id} ({name}, {politician['municipio_nome']}), skipping.")
+            write_result(results_path, seq, None, "no_url")
+            continue
 
         candidates = [urls.get("camara_url"), urls.get("prefeitura_url")]
         candidates = [u for u in candidates if u and str(u) != "nan"]

@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SAPL_JSONL = ROOT / "data/silver/vereadores-sapl.jsonl"
 OUT_PATH = ROOT / "data/silver/model-pilot.json"
 
-MODELS = ["gemma3:4b", "qwen3:8b", "qwen2.5:14b", "llama3:latest"]
+MODELS = ["gemma3:4b", "qwen3:8b", "qwen2.5:7b", "llama3:latest"]
 if len(sys.argv) > 1:
     MODELS = sys.argv[1].split(",")
 

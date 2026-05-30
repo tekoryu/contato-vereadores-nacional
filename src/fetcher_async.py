@@ -1,72 +1,59 @@
 import json
 import logging
-import re
-import sys
 import time
+from urllib.parse import urljoin
+
 import ollama
-from urllib.parse import urljoin, urlparse
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+from fetcher import (
+    _is_allowed_domain,
+    _is_valid_navigation_target,
+    extract_emails,
+)
 
 logger = logging.getLogger(__name__)
 
-_BAD_PATH_PATTERNS = ("/login", "/signin", "/certidao", "/assinar", "/assinatura", "/emissao-certidao")
-_BAD_EXTENSIONS = (".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip")
+# AsyncClient yields control while the HTTP call to Ollama is in flight.
+# The sync ollama.chat would block the entire event loop for ~0.7s per call,
+# freezing all other workers. AsyncClient lets them keep running.
+_ollama = ollama.AsyncClient()
 
 
-def _base_host(url: str) -> str:
-    return urlparse(url).netloc.lower().removeprefix("www.")
+async def fetch_page(browser, url: str) -> tuple[str, list[dict]]:
+    """Returns (page_text, links) where each link is {text, href}.
 
-
-def _is_allowed_domain(href: str, start_url: str) -> bool:
-    """True if href is on the same domain as start_url or an official .gov.br/.leg.br domain."""
-    host = _base_host(href)
-    start_host = _base_host(start_url)
-    if host == start_host or host.endswith("." + start_host):
-        return True
-    return host.endswith(".gov.br") or host.endswith(".leg.br")
-
-
-def _is_valid_navigation_target(href: str) -> bool:
-    """True if the URL is a reasonable crawl target (not a login/doc/signature page)."""
-    path = urlparse(href).path.lower()
-    if any(pattern in path for pattern in _BAD_PATH_PATTERNS):
-        return False
-    return not any(path.endswith(ext) for ext in _BAD_EXTENSIONS)
-
-
-def fetch_page(url: str) -> tuple[str, list[dict]]:
-    """Returns (page_text, links) where each link is {text, href}."""
+    Uses a shared browser and a fresh context per call for isolation.
+    """
+    # Every `await` below is a potential pause point. While this coroutine
+    # is parked waiting for the network/Chromium, the event loop is free to
+    # run other workers. That's where the 3x speedup comes from — the wait
+    # time becomes productive for everyone else.
     t0 = time.perf_counter()
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(ignore_https_errors=True)
-        page = context.new_page()
-        page.goto(url, timeout=5000)
+    context = await browser.new_context(ignore_https_errors=True)
+    try:
+        page = await context.new_page()
+        await page.goto(url, timeout=5000)
         try:
-            page.wait_for_load_state("networkidle", timeout=3000)
+            await page.wait_for_load_state("networkidle", timeout=3000)
         except PlaywrightTimeoutError:
             pass
-        text = page.inner_text("body")
-        anchors = page.query_selector_all("a")
+        text = await page.inner_text("body")
+        anchors = await page.query_selector_all("a")
         links = []
         for a in anchors:
-            href = a.get_attribute("href")
-            link_text = a.inner_text().strip()
+            href = await a.get_attribute("href")
+            link_text = (await a.inner_text()).strip()
             if href and link_text:
                 links.append({"text": link_text, "href": href})
-        context.close()
-        browser.close()
+    finally:
+        await context.close()
     elapsed = time.perf_counter() - t0
     logger.debug(f"fetch_page {elapsed:.2f}s — {len(links)} links ({url})")
     return text, links
 
 
-def extract_emails(text: str) -> list[str]:
-    pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    return list(set(re.findall(pattern, text)))
-
-
-def pick_best_link(
+async def pick_best_link(
     links: list[dict],
     politician_name: str,
     model: str,
@@ -74,7 +61,6 @@ def pick_best_link(
     decision_log=None,
     context: dict | None = None,
 ) -> str | None:
-    """Ask the AI to pick the most promising link by number. Returns the href or None."""
     if not links:
         return None
 
@@ -94,7 +80,10 @@ def pick_best_link(
 
     logger.debug(f"pick_best_link: {n} links → model {model}")
     t0 = time.perf_counter()
-    response = ollama.chat(
+    # `await` here parks this worker until Ollama replies. The GPU still
+    # serializes requests, but other workers can run their fetch_page calls
+    # during the wait — that's why the LLM queue isn't a bottleneck at N=3.
+    response = await _ollama.chat(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         format={
@@ -130,7 +119,7 @@ def pick_best_link(
     return result_href
 
 
-def identify_email(
+async def identify_email(
     emails: list[str],
     politician_name: str,
     model: str,
@@ -138,7 +127,6 @@ def identify_email(
     decision_log=None,
     context: dict | None = None,
 ) -> str | None:
-    """Ask the AI to pick which email belongs to the politician. Returns the email or None."""
     if not emails:
         return None
 
@@ -155,7 +143,7 @@ def identify_email(
 
     logger.debug(f"identify_email: {len(emails)} candidates for {politician_name}")
     t0 = time.perf_counter()
-    response = ollama.chat(
+    response = await _ollama.chat(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         format={
@@ -187,7 +175,8 @@ def identify_email(
     return email
 
 
-def crawl_for_email(
+async def crawl_for_email(
+    browser,
     start_url: str,
     politician_name: str,
     model: str = "qwen2.5:14b",
@@ -195,7 +184,9 @@ def crawl_for_email(
     *,
     decision_log=None,
 ) -> tuple[str, str] | None:
-    """Returns (email, source_url) if found, else None."""
+    # Each iteration of the depth loop has two `await` points (fetch_page
+    # then an LLM call). At each one this coroutine can be paused and the
+    # event loop will switch to another worker that's ready to make progress.
     current_url = start_url
     visited: set[str] = {start_url.rstrip("/")}
 
@@ -203,14 +194,14 @@ def crawl_for_email(
         ctx = {"politician": politician_name, "url": current_url, "depth": depth, "model": model}
 
         logger.info(f"  [depth {depth}/{max_depth}] Fetching: {current_url}")
-        text, links = fetch_page(current_url)
+        text, links = await fetch_page(browser, current_url)
 
         emails = extract_emails(text)
         logger.info(f"  [depth {depth}/{max_depth}] Found {len(emails)} email(s) on page")
 
         if emails:
             logger.info(f"  [depth {depth}/{max_depth}] Asking AI to identify email for: {politician_name}")
-            result = identify_email(emails, politician_name, model, decision_log=decision_log, context=ctx)
+            result = await identify_email(emails, politician_name, model, decision_log=decision_log, context=ctx)
             if result:
                 return result, current_url
             logger.info(f"  [depth {depth}/{max_depth}] AI could not match any email to this politician")
@@ -239,7 +230,7 @@ def crawl_for_email(
             logger.debug(f"  [depth {depth}/{max_depth}] {filtered_count} link(s) removed by domain filter")
 
         logger.info(f"  [depth {depth}/{max_depth}] {len(valid_links)} navigable links. Asking AI to pick next...")
-        next_href = pick_best_link(valid_links, politician_name, model, decision_log=decision_log, context=ctx)
+        next_href = await pick_best_link(valid_links, politician_name, model, decision_log=decision_log, context=ctx)
 
         if not next_href:
             logger.info(f"  [depth {depth}/{max_depth}] AI found no promising link. Giving up.")
@@ -257,35 +248,3 @@ def crawl_for_email(
         current_url = next_href
 
     return None
-
-
-if __name__ == "__main__":
-    from logging_setup import DecisionLogger, setup_logging
-
-    if len(sys.argv) < 3:
-        print("Usage: python src/fetcher.py <url> <politician_name> [model]")
-        sys.exit(1)
-
-    url = sys.argv[1]
-    name = sys.argv[2]
-    model = sys.argv[3] if len(sys.argv) > 3 else "qwen2.5:14b"
-
-    log = setup_logging()
-    dl = DecisionLogger()
-
-    log.info("=" * 60)
-    log.info(f"Politician : {name}")
-    log.info(f"Start URL  : {url}")
-    log.info(f"Model      : {model}")
-    log.info("=" * 60)
-
-    result = crawl_for_email(url, name, model, decision_log=dl)
-
-    log.info("=" * 60)
-    if result:
-        email, source_url = result
-        log.info(f"Email     : {email}")
-        log.info(f"Source URL: {source_url}")
-    else:
-        log.info("Result: No email found")
-    log.info("=" * 60)
