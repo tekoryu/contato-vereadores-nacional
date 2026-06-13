@@ -19,8 +19,10 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Iterable
 
-USER_AGENT = "contato-vereadores/0.1 (+research)"
-TIMEOUT_S = 8
+from config import cfg
+
+USER_AGENT = "contato-vereadores/1.0 (+research)"
+TIMEOUT_S: int = cfg.sapl_request_timeout_s
 
 
 def _norm(s: str) -> str:
@@ -131,8 +133,13 @@ def match_parlamentar(name: str, parlamentares: Iterable[Parlamentar]) -> Parlam
     return best[1] if best[0] >= 1 else None
 
 
-def load_sigi_index(path: str = "data/silver/sigi-casas.csv") -> dict[tuple[str, str], dict]:
-    """Return {(uf, normalized_municipio): {url, email, servicos}}."""
+def load_sigi_index(path: str | None = None) -> dict[tuple[str, str], dict]:
+    """Return {(uf, normalized_municipio): {url, email, servicos}}.
+
+    Defaults to the path configured in ``settings.toml``.
+    """
+    if path is None:
+        path = str(cfg.paths.sigi_casas_csv)
     idx: dict[tuple[str, str], dict] = {}
     with open(path, encoding="utf-8") as f:
         for r in csv.DictReader(f):

@@ -18,6 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
+sys.path.insert(0, str(ROOT / "src"))
 
 from sapl_client import fetch_parlamentares, load_sigi_index, match_parlamentar  # noqa: E402
 
@@ -39,9 +41,9 @@ def load_prefeituras_index(path: Path) -> dict[str, str]:
 
 
 def main() -> None:
-    sample = json.loads((ROOT / "data/silver/vereadores-sample.json").read_text())
-    sigi = load_sigi_index(str(ROOT / "data/silver/sigi-casas.csv"))
-    prefeituras = load_prefeituras_index(ROOT / "data/silver/prefeituras.csv")
+    sample = json.loads((cfg.paths.vereadores_sample).read_text())
+    sigi = load_sigi_index(str(cfg.paths.sigi_casas_csv))
+    prefeituras = load_prefeituras_index(cfg.paths.prefeituras_csv)
 
     rows = []
     summary = {"total": len(sample), "sigi_hit": 0, "sapl_reachable": 0, "name_matched": 0, "email_found": 0}
@@ -100,7 +102,7 @@ def main() -> None:
     print(f"  Email found:       {summary['email_found']} ({summary['email_found']*100//summary['total']}%)")
     print("=" * 80)
 
-    out = ROOT / "data/silver/sapl-coverage-sample.jsonl"
+    out = cfg.paths.sapl_coverage_sample
     with out.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")

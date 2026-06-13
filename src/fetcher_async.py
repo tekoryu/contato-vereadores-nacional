@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import json
 import logging
 import time
+from typing import Any
 from urllib.parse import urljoin
 
 import ollama
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Browser, TimeoutError as PlaywrightTimeoutError
 
+from config import cfg
 from fetcher import (
     _is_allowed_domain,
     _is_valid_navigation_target,
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 _ollama = ollama.AsyncClient()
 
 
-async def fetch_page(browser, url: str) -> tuple[str, list[dict]]:
+async def fetch_page(browser: Browser, url: str) -> tuple[str, list[dict[str, str]]]:
     """Returns (page_text, links) where each link is {text, href}.
 
     Uses a shared browser and a fresh context per call for isolation.
@@ -33,9 +37,9 @@ async def fetch_page(browser, url: str) -> tuple[str, list[dict]]:
     context = await browser.new_context(ignore_https_errors=True)
     try:
         page = await context.new_page()
-        await page.goto(url, timeout=5000)
+        await page.goto(url, timeout=cfg.page_timeout_ms)
         try:
-            await page.wait_for_load_state("networkidle", timeout=3000)
+            await page.wait_for_load_state("networkidle", timeout=cfg.network_idle_timeout_ms)
         except PlaywrightTimeoutError:
             pass
         text = await page.inner_text("body")
@@ -54,12 +58,12 @@ async def fetch_page(browser, url: str) -> tuple[str, list[dict]]:
 
 
 async def pick_best_link(
-    links: list[dict],
+    links: list[dict[str, str]],
     politician_name: str,
     model: str,
     *,
-    decision_log=None,
-    context: dict | None = None,
+    decision_log: Any = None,
+    context: dict[str, Any] | None = None,
 ) -> str | None:
     if not links:
         return None
@@ -124,8 +128,8 @@ async def identify_email(
     politician_name: str,
     model: str,
     *,
-    decision_log=None,
-    context: dict | None = None,
+    decision_log: Any = None,
+    context: dict[str, Any] | None = None,
 ) -> str | None:
     if not emails:
         return None
@@ -176,13 +180,13 @@ async def identify_email(
 
 
 async def crawl_for_email(
-    browser,
+    browser: Browser,
     start_url: str,
     politician_name: str,
-    model: str = "qwen2.5:14b",
-    max_depth: int = 3,
+    model: str = cfg.model,
+    max_depth: int = cfg.max_crawl_depth,
     *,
-    decision_log=None,
+    decision_log: Any = None,
 ) -> tuple[str, str] | None:
     # Each iteration of the depth loop has two `await` points (fetch_page
     # then an LLM call). At each one this coroutine can be paused and the

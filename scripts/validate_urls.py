@@ -33,10 +33,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-IN_CSV = ROOT / "data/silver/prefeituras.csv"
-OUT_JSONL = ROOT / "data/silver/url-validation.jsonl"
-OUT_CSV = ROOT / "data/silver/prefeituras-validated.csv"
-DEAD_URLS = ROOT / "data/silver/dead_urls.json"
+sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
+IN_CSV: Path = cfg.paths.prefeituras_csv
+OUT_JSONL: Path = cfg.paths.url_validation_jsonl
+OUT_CSV: Path = cfg.paths.prefeituras_validated
+DEAD_URLS: Path = cfg.paths.dead_urls_json
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "

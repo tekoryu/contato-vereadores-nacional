@@ -1,14 +1,46 @@
 [project]
 name = "contato-vereadores-nacional"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "AI-assisted pipeline to map and extract public contact emails for all Brazilian municipal legislators (vereadores) from official government websites."
 readme = "README.md"
 requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "tekoryu", url = "https://github.com/tekoryu" },
+]
+keywords = [
+    "brazil",
+    "data-engineering",
+    "web-scraping",
+    "llm",
+    "ollama",
+    "playwright",
+    "open-data",
+    "civic-tech",
+    "vereadores",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Topic :: Database",
+]
+
+[project.urls]
+Repository = "https://github.com/tekoryu/contato-vereadores-nacional"
+"Bug Tracker" = "https://github.com/tekoryu/contato-vereadores-nacional/issues"
+
 dependencies = [
     "ollama>=0.6.2",
     "pandas>=3.0.3",
     "playwright>=1.60.0",
     "pyarrow>=24.0.0",
+    "tomli>=2.0.0; python_version < '3.11'",
 ]
 
 [tool.pytest.ini_options]
@@ -16,6 +48,5 @@ pythonpath = ["src"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0.0",
     "rich>=15.0.0",
 ]

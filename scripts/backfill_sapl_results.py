@@ -24,10 +24,13 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
 
-INPUT_TARGETS = ROOT / "data/silver/vereadores-completo.json"
-INPUT_SAPL = ROOT / "data/silver/vereadores-sapl.jsonl"
-OUT_RESULTS = ROOT / "data/silver/results.jsonl"
+from config import cfg  # noqa: E402
+
+INPUT_TARGETS: Path = cfg.paths.vereadores_json
+INPUT_SAPL: Path = cfg.paths.vereadores_sapl_jsonl
+OUT_RESULTS: Path = cfg.paths.results_jsonl
 
 
 def norm(s: str) -> str:

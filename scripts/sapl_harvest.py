@@ -26,12 +26,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from config import cfg  # noqa: E402
 from sapl_client import fetch_parlamentares  # noqa: E402
 
-OUT_PATH = ROOT / "data/silver/vereadores-sapl.jsonl"
-SIGI_PATH = ROOT / "data/silver/sigi-casas.csv"
-PREFEITURAS_PATH = ROOT / "data/silver/prefeituras.csv"
-WORKERS = 12
+OUT_PATH: Path = cfg.paths.vereadores_sapl_jsonl
+SIGI_PATH: Path = cfg.paths.sigi_casas_csv
+PREFEITURAS_PATH: Path = cfg.paths.prefeituras_csv
+WORKERS: int = cfg.sapl_harvest_workers
 
 
 def norm(s: str) -> str:

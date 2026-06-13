@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# contato-vereadores-nacional — runtime configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# All paths are relative to the repository root.
+# Override any value by setting the corresponding environment variable
+# (prefix: CVN_), e.g. CVN_MODEL=llama3:latest python src/pipeline.py
+
+[paths]
+# Bronze layer — raw external sources (TSE, IBGE, Senado)
+bronze_dir            = "data/bronze"
+raw_dir               = "data/raw"
+
+# Silver layer — normalised data and pipeline artefacts
+silver_dir            = "data/silver"
+prefeituras_csv       = "data/silver/prefeituras.csv"
+sigi_casas_csv        = "data/silver/sigi-casas.csv"
+vereadores_json       = "data/silver/vereadores-completo.json"
+vereadores_sample     = "data/silver/vereadores-sample.json"
+vereadores_sapl_jsonl = "data/silver/vereadores-sapl.jsonl"
+results_jsonl         = "data/silver/results.jsonl"
+dead_urls_json        = "data/silver/dead_urls.json"
+url_validation_jsonl  = "data/silver/url-validation.jsonl"
+prefeituras_validated = "data/silver/prefeituras-validated.csv"
+sapl_failures_jsonl   = "data/silver/sapl-failures.jsonl"
+sapl_failures_csv     = "data/silver/sapl-failures.csv"
+sapl_coverage_sample  = "data/silver/sapl-coverage-sample.jsonl"
+model_pilot_json      = "data/silver/model-pilot.json"
+
+# Gold layer — final deliverable
+gold_json             = "data/vereadores-completo.json"
+gold_parquet          = "data/vereadores-completo.parquet"
+
+[pipeline]
+# Default Ollama model. Requires ~10 GB VRAM (e.g. RTX 3080 / 4070).
+# Smaller alternatives: qwen2.5:7b (~5 GB), gemma3:4b (~3 GB)
+default_model         = "qwen2.5:14b"
+
+# Async pipeline concurrency (number of parallel Playwright workers)
+default_concurrency   = 3
+
+# Maximum crawl depth per politician (pages followed from the start URL)
+max_crawl_depth       = 3
+
+# Playwright page-load timeout in milliseconds
+page_timeout_ms       = 5000
+
+# Playwright network-idle timeout in milliseconds
+network_idle_timeout_ms = 3000
+
+[sapl]
+# Maximum threads for concurrent SAPL harvest
+harvest_workers       = 10
+
+# Request timeout for SAPL API calls in seconds
+request_timeout_s     = 10

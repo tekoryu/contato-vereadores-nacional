@@ -24,8 +24,10 @@ import ollama
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
-SAPL_JSONL = ROOT / "data/silver/vereadores-sapl.jsonl"
-OUT_PATH = ROOT / "data/silver/model-pilot.json"
+sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
+SAPL_JSONL: Path = cfg.paths.vereadores_sapl_jsonl
+OUT_PATH: Path = cfg.paths.model_pilot_json
 
 MODELS = ["gemma3:4b", "qwen3:8b", "qwen2.5:7b", "llama3:latest"]
 if len(sys.argv) > 1:

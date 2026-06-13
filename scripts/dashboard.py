@@ -23,8 +23,8 @@ from rich.progress import BarColumn, Progress, TextColumn
 from rich.table import Table
 from rich.text import Text
 
-DEFAULT_INPUT = "data/silver/vereadores-completo.json"
-DEFAULT_RESULTS = "data/silver/results.jsonl"
+DEFAULT_INPUT: str = str(cfg.paths.vereadores_json)
+DEFAULT_RESULTS: str = str(cfg.paths.results_jsonl)
 DEFAULT_LOGS = "logs"
 RECENT_EVENTS = 12
 
@@ -290,7 +290,7 @@ def main() -> None:
     parser.add_argument("--input", default=DEFAULT_INPUT)
     parser.add_argument("--results", default=DEFAULT_RESULTS)
     parser.add_argument("--logs-dir", default=DEFAULT_LOGS)
-    parser.add_argument("--model", default=os.environ.get("PIPELINE_MODEL", "qwen2.5:14b"))
+    parser.add_argument("--model", default=os.environ.get("PIPELINE_MODEL", cfg.model))
     parser.add_argument("--refresh", type=float, default=1.0, help="Seconds between refreshes.")
     args = parser.parse_args()
 

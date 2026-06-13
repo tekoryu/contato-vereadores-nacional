@@ -21,13 +21,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import validate_urls as vu  # noqa: E402
 
-CSV_PATH = ROOT / "data/silver/prefeituras.csv"
-JSONL_PATH = ROOT / "data/silver/url-validation.jsonl"
-SIGI_PATH = ROOT / "data/silver/sigi-casas.csv"
+CSV_PATH: Path = cfg.paths.prefeituras_csv
+JSONL_PATH: Path = cfg.paths.url_validation_jsonl
+SIGI_PATH: Path = cfg.paths.sigi_casas_csv
 
 GOOD = {"ok", "ok_unverified"}
 WORKERS = 24

@@ -21,9 +21,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CSV_PATH = ROOT / "data/silver/prefeituras.csv"
-JSONL_PATH = ROOT / "data/silver/url-validation.jsonl"
-BACKUP_PATH = ROOT / "data/silver/prefeituras.csv.bak"
+sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
+CSV_PATH: Path = cfg.paths.prefeituras_csv
+JSONL_PATH: Path = cfg.paths.url_validation_jsonl
+# BACKUP_PATH removed — backup files are not committed to version control
 
 
 def load_promotions() -> dict[tuple[str, str], str]:

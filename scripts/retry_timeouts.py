@@ -13,13 +13,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+from config import cfg  # noqa: E402
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import validate_urls as vu  # noqa: E402
 
 vu.TIMEOUT_S = 30
 WORKERS = 16
-JSONL = ROOT / "data/silver/url-validation.jsonl"
+JSONL: Path = cfg.paths.url_validation_jsonl
 
 
 def main() -> int:

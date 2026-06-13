@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import json
 import logging
 import re
 import sys
 import time
+from typing import Any
+
 import ollama
-from urllib.parse import urljoin, urlparse
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+from urllib.parse import urljoin, urlparse
+
+from config import cfg
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +47,9 @@ def fetch_page(url: str) -> tuple[str, list[dict]]:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(ignore_https_errors=True)
         page = context.new_page()
-        page.goto(url, timeout=5000)
+        page.goto(url, timeout=cfg.page_timeout_ms)
         try:
-            page.wait_for_load_state("networkidle", timeout=3000)
+            page.wait_for_load_state("networkidle", timeout=cfg.network_idle_timeout_ms)
         except PlaywrightTimeoutError:
             pass
         text = page.inner_text("body")
@@ -67,12 +73,12 @@ def extract_emails(text: str) -> list[str]:
 
 
 def pick_best_link(
-    links: list[dict],
+    links: list[dict[str, str]],
     politician_name: str,
     model: str,
     *,
-    decision_log=None,
-    context: dict | None = None,
+    decision_log: Any = None,
+    context: dict[str, Any] | None = None,
 ) -> str | None:
     """Ask the AI to pick the most promising link by number. Returns the href or None."""
     if not links:
@@ -135,8 +141,8 @@ def identify_email(
     politician_name: str,
     model: str,
     *,
-    decision_log=None,
-    context: dict | None = None,
+    decision_log: Any = None,
+    context: dict[str, Any] | None = None,
 ) -> str | None:
     """Ask the AI to pick which email belongs to the politician. Returns the email or None."""
     if not emails:
@@ -190,10 +196,10 @@ def identify_email(
 def crawl_for_email(
     start_url: str,
     politician_name: str,
-    model: str = "qwen2.5:14b",
-    max_depth: int = 3,
+    model: str = cfg.model,
+    max_depth: int = cfg.max_crawl_depth,
     *,
-    decision_log=None,
+    decision_log: Any = None,
 ) -> tuple[str, str] | None:
     """Returns (email, source_url) if found, else None."""
     current_url = start_url

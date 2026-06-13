@@ -226,3 +226,16 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AI assistant workspace
+.claude/
+
+# Test suite (removed for portfolio presentation)
+tests/
+
+# Backup data files
+data/**/*.bak
+data/**/*.bak*
+
+# Session transcripts
+docs/*.txt

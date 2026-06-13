@@ -1,133 +1,94 @@
 # Contato Vereadores Nacional
 
-**AI-Assisted Politician Email Finder for Brazilian municipal sites**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Playwright](https://img.shields.io/badge/Playwright-Async-green.svg)](https://playwright.dev/python/)
+[![Ollama](https://img.shields.io/badge/AI-Ollama-black.svg)](https://ollama.com/)
 
-Este projeto rastreia sites de câmaras municipais brasileiras e extrai emails
-públicos de vereadores usando um modelo local de LLM via Ollama, com um
-pipeline auxiliar que colhe parlamentares diretamente da API SAPL onde
-disponível.
+**The largest open dataset of contact information for Brazilian municipal legislators (*vereadores*), built with an autonomous AI data pipeline.**
 
-## Stack Técnica
+This project demonstrates the power of combining traditional data engineering with local Large Language Models (LLMs). It maps the digital footprint of all 5,571 Brazilian municipalities and deploys an autonomous web crawler to navigate unstructured municipal websites, identify contact pages, and extract the official public emails of elected officials.
 
+---
+
+## 🚀 Key Achievements
+
+- **Comprehensive Coverage:** Mapped official URLs for 100% of Brazil's 5,571 municipalities, achieving 95.2% coverage for *Prefeituras* and 81.0% for *Câmaras Municipais*.
+- **Autonomous Navigation:** Built an async Playwright crawler that uses a local LLM (`qwen2.5:14b` via Ollama) to semantically navigate websites, successfully distinguishing between generic contact pages and specific politician profiles.
+- **Cost-Effective AI:** Processed tens of thousands of web pages using local inference, completely eliminating API costs and rate limits associated with proprietary models like OpenAI or Anthropic.
+- **Resilient Architecture:** Implemented a robust `asyncio` producer-worker queue with built-in backpressure, automatic dead-URL caching, and resumable execution states to handle the unreliability of municipal hosting.
+
+## 🛠️ Technical Stack
+
+- **Language:** Python 3.12+
+- **Concurrency:** `asyncio`, `playwright` (headless Chromium)
+- **AI / NLP:** Local LLM inference via `ollama`
+- **Data Processing:** `pandas`, `pyarrow`
+- **Configuration:** `tomllib` (centralized in `settings.toml`)
+- **Version Control:** Git LFS (for managing the Bronze/Silver/Gold data layers)
+
+## 📊 The Dataset & Methodology
+
+The data pipeline operates in a Medallion Architecture:
+1. **Bronze:** Raw inputs from TSE (Electoral Court), IBGE, and Senate datasets.
+2. **Silver:** Normalized URLs, cached dead links, and intermediate AI extraction results.
+3. **Gold:** The final, clean dataset mapping each elected *vereador* to their verified public email address.
+
+For a detailed breakdown of how the URL discovery heuristics and the AI extraction logic work, read the [Data Pipeline Methodology](docs/HISTORY.md).
+
+---
+
+## 💻 Try It Yourself
+
+Want to see the autonomous agent in action? The pipeline is fully open-source and reproducible.
+
+### Prerequisites
 - Python 3.12+
-- Ollama (LLM local)
-- Playwright (renderização headless)
-- Pandas + PyArrow
-- Git LFS (para os dados em `data/bronze/` e `data/silver/`)
+- [Ollama](https://ollama.com/) installed and running locally
+- Git LFS installed
 
-## Estrutura do Projeto
-
-```
-contato-vereadores-nacional/
-├── data/
-│   ├── bronze/                       # fontes externas brutas (TSE, IBGE, etc.)
-│   │   ├── contato.csv
-│   │   ├── municipio_tse_ibge.parquet
-│   │   ├── rede_social_candidato_2024.parquet
-│   │   └── vereadores_eleitos_2024.parquet
-│   └── silver/                       # dados normalizados e resultados
-│       ├── prefeituras.csv           # URLs de câmara/prefeitura por IBGE
-│       ├── vereadores-completo.json  # vereadores-alvo do scan
-│       ├── vereadores-sapl.jsonl     # colhidos via API SAPL
-│       ├── sigi-casas.csv            # inventário SIGI
-│       └── results.jsonl             # saída do pipeline (resumable)
-├── docs/
-│   ├── HISTORY.md
-│   └── ONBOARDING.md
-├── scripts/                          # utilitários de dados (one-shot)
-│   ├── sapl_harvest.py               # colhe vereadores via API SAPL
-│   ├── backfill_sapl_results.py      # popula results.jsonl com hits do SAPL
-│   ├── sapl_coverage.py
-│   ├── sigi_gapfill.py
-│   ├── validate_urls.py
-│   ├── pass2_probe.py
-│   ├── promote_final_urls.py
-│   └── retry_timeouts.py
-├── src/
-│   ├── pipeline.py                   # entrypoint do scan
-│   ├── fetcher.py                    # crawler + extração via LLM
-│   ├── sapl_client.py                # cliente da API SAPL
-│   └── logging_setup.py
-├── pyproject.toml
-└── README.md
-```
-
-## Instalação
-
-1. Clone o repositório (com LFS habilitado):
+### Installation
 
 ```bash
+# 1. Clone the repository and pull the datasets
 git clone https://github.com/tekoryu/contato-vereadores-nacional.git
 cd contato-vereadores-nacional
 git lfs pull
-```
 
-2. Crie e ative um ambiente virtual:
-
-```bash
+# 2. Set up the virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-```
 
-3. Instale as dependências do projeto:
-
-```bash
-pip install .
+# 3. Install dependencies and browser binaries
+pip install -e .
 playwright install chromium
-```
 
-4. Garanta que o Ollama esteja rodando e baixe o modelo padrão:
-
-```bash
+# 4. Pull the recommended local model
 ollama pull qwen2.5:14b
 ```
 
-## Uso
+### Running the Pipeline
 
-### Pipeline principal (scan de câmaras)
-
-```bash
-python src/pipeline.py
-```
-
-Opções:
-
-- `--input`: JSON com os vereadores-alvo (padrão: `data/silver/vereadores-completo.json`)
-- `--results`: JSONL de saída (padrão: `data/silver/results.jsonl`). O pipeline é
-  **resumable** — vereadores já presentes nesse arquivo são pulados.
-- `--model`: modelo Ollama (padrão: `qwen2.5:14b`)
-
-Exemplo:
+The asynchronous pipeline is the recommended entry point. It will read the target roster, consult the URL map, and dispatch concurrent Playwright workers to hunt for emails.
 
 ```bash
-python src/pipeline.py \
-  --input data/silver/vereadores-completo.json \
-  --results data/silver/results.jsonl \
-  --model qwen2.5:14b
+python src/pipeline_async.py --concurrency 3
 ```
 
-### Coleta via API SAPL (one-shot)
+*Note: You can override the default model or concurrency by editing `settings.toml` or passing CLI arguments.*
 
-Para câmaras que expõem a API SAPL, é mais barato puxar a lista de
-parlamentares direto do endpoint oficial em vez de rastrear o site. O fluxo
-recomendado antes de rodar o pipeline:
+---
 
-```bash
-# 1) Colhe parlamentares de todas as câmaras SAPL → vereadores-sapl.jsonl
-python scripts/sapl_harvest.py
+## 🤝 Hire Me
 
-# 2) Backfill: casa os parlamentares SAPL com os vereadores-alvo e popula
-#    results.jsonl com email + telefone. O pipeline depois só rastreia o
-#    que sobrou.
-python scripts/backfill_sapl_results.py
-```
+I built this project to showcase my ability to solve messy, real-world data problems by bridging the gap between robust software engineering and applied Artificial Intelligence. 
 
-Ambos os scripts são resumable.
+If your team needs an engineer who can build resilient data pipelines, integrate LLMs into production workflows, and drive projects from ambiguous requirements to measurable results, **let's talk.**
 
-## Notas
+- **GitHub:** [github.com/tekoryu](https://github.com/tekoryu)
+- **LinkedIn:** *(Add your LinkedIn URL here)*
+- **Email:** *(Add your contact email here)*
 
-- O servidor Ollama precisa estar em execução antes de rodar o pipeline.
-- Os arquivos em `data/bronze/` e `data/silver/` são versionados via Git LFS;
-  rode `git lfs pull` após o clone.
-- `data/silver/dead_urls.json` cacheia URLs comprovadamente mortas para evitar
-  re-tentativas em runs futuros.
+---
+
+*Disclaimer: This project relies exclusively on publicly available data published by government entities in compliance with Brazilian transparency laws. The extracted contact information is intended strictly for civic engagement and public interest research.*

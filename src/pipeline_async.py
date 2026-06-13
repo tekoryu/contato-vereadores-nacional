@@ -1,3 +1,19 @@
+"""Asynchronous pipeline — concurrent crawl of municipal websites for councillor emails.
+
+Uses an asyncio producer/workers/writer architecture to run multiple
+Playwright browser contexts in parallel while sharing a single Ollama
+inference server.
+
+Entry point::
+
+    python src/pipeline_async.py [--input PATH] [--results PATH]
+                                  [--model NAME] [--concurrency N]
+
+See ``docs/ASYNC_FLOW.md`` for a detailed diagram of the concurrency model.
+"""
+
+from __future__ import annotations
+
 import argparse
 import asyncio
 import datetime
@@ -7,6 +23,7 @@ import time
 
 from playwright.async_api import async_playwright
 
+from config import cfg
 from fetcher_async import crawl_for_email
 from logging_setup import DecisionLogger, setup_logging
 from pipeline import (
@@ -19,39 +36,39 @@ from pipeline import (
 )
 
 
-async def results_writer(results_path: str, queue: asyncio.Queue) -> None:
-    """Single consumer for results.jsonl — no append races possible.
+# ── writer ────────────────────────────────────────────────────────────────────
 
-    Workers don't write to the file directly. They put dicts onto `queue`
-    and this single task drains the queue, writing one line at a time.
-    Because only one coroutine ever opens the file, two workers can never
-    interleave their bytes. `None` is the shutdown sentinel.
+async def results_writer(results_path: str, queue: asyncio.Queue[dict | None]) -> None:
+    """Single consumer for the results JSONL file — prevents write-interleaving.
+
+    Workers never write to the file directly; they put dicts onto *queue*.
+    This task drains the queue one record at a time.  ``None`` is the
+    shutdown sentinel.
     """
-    with open(results_path, "a") as f:
+    with open(results_path, "a", encoding="utf-8") as fh:
         while True:
-            # `await queue.get()` parks this task whenever the queue is empty,
-            # so it costs nothing when no work is coming in.
             record = await queue.get()
             if record is None:
                 queue.task_done()
                 return
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            f.flush()
+            fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+            fh.flush()
             queue.task_done()
 
 
-def record_dead_url(url: str, error: Exception, dead_urls: dict) -> None:
-    """Synchronous: mutates dict + dumps file. Safe under asyncio (no awaits).
+# ── dead-URL cache (sync, asyncio-safe) ───────────────────────────────────────
 
-    Because there's no `await` inside, the entire read-modify-write runs
-    atomically from the event loop's perspective — no other worker can
-    sneak in between the dict update and the file dump. This is why a
-    plain sync function is correct here without any locks.
+def record_dead_url(url: str, error: Exception, dead_urls: dict[str, dict]) -> None:
+    """Classify *error*, update *dead_urls* in place, and persist to disk.
+
+    This function is intentionally synchronous: it contains no ``await``,
+    so the entire read-modify-write is atomic from the event loop's
+    perspective — no two workers can interleave inside it.
     """
-    key = url.rstrip("/")
-    today = str(datetime.date.today())
+    key: str = url.rstrip("/")
+    today: str = str(datetime.date.today())
 
-    msg = str(error)
+    msg: str = str(error)
     if "ERR_NAME_NOT_RESOLVED" in msg:
         error_type = "dns_error"
     elif "Timeout" in msg:
@@ -73,41 +90,40 @@ def record_dead_url(url: str, error: Exception, dead_urls: dict) -> None:
             "count": 1,
         }
 
-    with open(DEAD_URLS_PATH, "w", encoding="utf-8") as f:
-        json.dump(dead_urls, f, indent=2, ensure_ascii=False)
+    with open(DEAD_URLS_PATH, "w", encoding="utf-8") as fh:
+        json.dump(dead_urls, fh, indent=2, ensure_ascii=False)
 
+
+# ── worker ────────────────────────────────────────────────────────────────────
 
 async def worker(
     name: str,
     browser,
-    in_q: asyncio.Queue,
-    results_q: asyncio.Queue,
-    url_map: dict,
-    dead_urls: dict,
+    in_q: asyncio.Queue[tuple[int, int, dict] | None],
+    results_q: asyncio.Queue[dict | None],
+    url_map: dict[int, dict[str, str]],
+    dead_urls: dict[str, dict],
     model: str,
     decision_log: DecisionLogger,
     logger: logging.Logger,
 ) -> None:
-    # One worker = one independent instance of this coroutine. We spawn N of
-    # them upfront (see `run` below). They all share the same in_q/results_q
-    # and compete to grab politicians from the queue. First-free-wins.
+    """Consume politicians from *in_q*, crawl for emails, push results to *results_q*."""
     while True:
-        # `await in_q.get()` parks this worker until a politician is
-        # available. While parked, the event loop runs other workers.
         item = await in_q.get()
         if item is None:
-            # Shutdown sentinel: producer puts one `None` per worker after
-            # the last politician, so each worker exits cleanly.
             in_q.task_done()
             return
+
         i, total, politician = item
-        seq = politician["candidato_seq"]
-        pname = politician["candidato_nome_urna"]
-        ibge_id = int(politician["municipio_ibge_id"])
-        urls = url_map.get(ibge_id)
+        seq: int = politician["candidato_seq"]
+        pname: str = politician["candidato_nome_urna"]
+        ibge_id: int = int(politician["municipio_ibge_id"])
+        urls: dict[str, str] | None = url_map.get(ibge_id)
 
         if not urls:
-            logger.warning(f"[{name}][{i+1}/{total}] No URL entry for ibge_id={ibge_id} ({pname}), skipping.")
+            logger.warning(
+                f"[{name}][{i+1}/{total}] No URL entry for ibge_id={ibge_id} ({pname}), skipping."
+            )
             await results_q.put({
                 "candidato_seq": seq, "email": None, "telefone": None,
                 "source_url": None, "source": None, "status": "no_url",
@@ -115,8 +131,8 @@ async def worker(
             in_q.task_done()
             continue
 
-        candidates = [urls.get("camara_url"), urls.get("prefeitura_url")]
-        candidates = [u for u in candidates if u and str(u) != "nan"]
+        candidates: list[str] = [urls.get("camara_url", ""), urls.get("prefeitura_url", "")]
+        candidates = [u for u in candidates if u and u != "nan"]
 
         if not candidates:
             logger.warning(f"[{name}][{i+1}/{total}] No URLs for {politician['municipio_nome']}, skipping.")
@@ -131,23 +147,28 @@ async def worker(
 
         email: str | None = None
         source_url: str | None = None
-        had_error = False
-        t_start = time.perf_counter()
+        had_error: bool = False
+        t_start: float = time.perf_counter()
 
         for url in candidates:
-            key = url.rstrip("/")
+            key: str = url.rstrip("/")
             if key in dead_urls:
                 entry = dead_urls[key]
-                logger.warning(f"  [{name}] Skipping dead URL ({entry['error_type']}, {entry['count']}x since {entry['first_seen']}): {url}")
+                logger.warning(
+                    f"  [{name}] Skipping dead URL ({entry['error_type']}, "
+                    f"{entry['count']}x since {entry['first_seen']}): {url}"
+                )
                 had_error = True
                 continue
 
             logger.info(f"  [{name}] Trying: {url}")
             try:
-                result = await crawl_for_email(browser, url, pname, model, decision_log=decision_log)
-            except Exception as e:
-                logger.error(f"  [{name}] Error crawling {url}: {e}")
-                record_dead_url(url, e, dead_urls)
+                result: tuple[str, str] | None = await crawl_for_email(
+                    browser, url, pname, model, decision_log=decision_log
+                )
+            except Exception as exc:
+                logger.error(f"  [{name}] Error crawling {url}: {exc}")
+                record_dead_url(url, exc, dead_urls)
                 had_error = True
                 continue
 
@@ -155,7 +176,7 @@ async def worker(
                 email, source_url = result
                 break
 
-        elapsed = time.perf_counter() - t_start
+        elapsed: float = time.perf_counter() - t_start
 
         if email:
             await results_q.put({
@@ -179,70 +200,70 @@ async def worker(
         in_q.task_done()
 
 
+# ── main coroutine ────────────────────────────────────────────────────────────
+
 async def run(input_path: str, results_path: str, model: str, concurrency: int) -> None:
+    """Launch the async pipeline with *concurrency* parallel Playwright workers."""
     logger = setup_logging()
     decision_log = DecisionLogger()
-    dead_urls = load_dead_urls(DEAD_URLS_PATH)
+    dead_urls: dict[str, dict] = load_dead_urls(DEAD_URLS_PATH)
 
     politicians, url_map = load_data(input_path)
-    processed = load_processed_ids(results_path)
-    todo = [p for p in politicians if p["candidato_seq"] not in processed]
+    processed: set[int] = load_processed_ids(results_path)
+    todo: list[dict] = [p for p in politicians if p["candidato_seq"] not in processed]
 
-    total = len(politicians)
+    total: int = len(politicians)
     logger.info(f"Input: {input_path} | Results: {results_path} | Model: {model}")
-    logger.info(f"Total: {total} | Already processed: {len(processed)} | Remaining: {len(todo)} | Workers: {concurrency}")
+    logger.info(
+        f"Total: {total} | Already processed: {len(processed)} "
+        f"| Remaining: {len(todo)} | Workers: {concurrency}"
+    )
     logger.info(f"Dead URL cache: {len(dead_urls)} entries")
 
-    # `in_q` has bounded size so the producer doesn't load 30k items into
-    # memory at once. When it's full, `await in_q.put(...)` parks the
-    # producer until a worker drains a slot — natural backpressure.
-    in_q: asyncio.Queue = asyncio.Queue(maxsize=concurrency * 2)
-    results_q: asyncio.Queue = asyncio.Queue()
+    in_q: asyncio.Queue[tuple[int, int, dict] | None] = asyncio.Queue(maxsize=concurrency * 2)
+    results_q: asyncio.Queue[dict | None] = asyncio.Queue()
 
     async with async_playwright() as p:
-        # One shared Chromium process. Each fetch opens a fresh "context"
-        # (like a private tab) — cheap to create, isolates cookies/state.
         browser = await p.chromium.launch(headless=True)
         try:
-            # The writer task starts parked on `results_q.get()`. It will
-            # wake up every time a worker puts a record onto the queue.
-            writer = asyncio.create_task(results_writer(results_path, results_q))
+            writer_task = asyncio.create_task(results_writer(results_path, results_q))
 
-            # Spawn N worker coroutines upfront. All N exist simultaneously
-            # from this point on — they are NOT created on demand. Each one
-            # is parked on `in_q.get()` waiting for its first politician.
-            # The event loop is the dispatcher that switches between them
-            # whenever one hits an `await`.
-            workers = [
+            worker_tasks = [
                 asyncio.create_task(
-                    worker(f"w{i}", browser, in_q, results_q, url_map, dead_urls,
-                           model, decision_log, logger)
+                    worker(
+                        f"w{i}", browser, in_q, results_q,
+                        url_map, dead_urls, model, decision_log, logger,
+                    )
                 )
                 for i in range(concurrency)
             ]
 
-            # Producer: feed politicians into the queue. Each `await put`
-            # may park briefly if the queue is full (see maxsize above).
             for i, pol in enumerate(todo):
                 await in_q.put((i, total, pol))
-            # One `None` sentinel per worker so each one exits its loop.
-            for _ in workers:
+            for _ in worker_tasks:
                 await in_q.put(None)
 
-            # Wait for all workers to drain the queue and return.
-            await asyncio.gather(*workers)
-            # Now that no more records are coming, tell the writer to stop.
+            await asyncio.gather(*worker_tasks)
             await results_q.put(None)
-            await writer
+            await writer_task
         finally:
             await browser.close()
 
 
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Async crawl for politician emails.")
+    parser = argparse.ArgumentParser(
+        description="Async crawl of Brazilian municipal websites for councillor emails."
+    )
     parser.add_argument("--input", default=DEFAULT_INPUT)
     parser.add_argument("--results", default=DEFAULT_RESULTS)
-    parser.add_argument("--model", default="qwen2.5:14b")
-    parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument("--model", default=cfg.model)
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=cfg.concurrency,
+        help=f"Number of parallel Playwright workers (default: {cfg.concurrency}).",
+    )
     args = parser.parse_args()
     asyncio.run(run(args.input, args.results, args.model, args.concurrency))
