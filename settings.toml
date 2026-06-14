@@ -8,7 +8,6 @@
 [paths]
 # Bronze layer — raw external sources (TSE, IBGE, Senado)
 bronze_dir            = "data/bronze"
-raw_dir               = "data/raw"
 
 # Silver layer — normalised data and pipeline artefacts
 silver_dir            = "data/silver"

@@ -45,7 +45,6 @@ def _env(key: str, default: str) -> str:
 @dataclass
 class Paths:
     bronze_dir: Path
-    raw_dir: Path
     silver_dir: Path
     prefeituras_csv: Path
     sigi_casas_csv: Path
@@ -87,7 +86,6 @@ def _build_config() -> Config:
 
     paths = Paths(
         bronze_dir=path("bronze_dir", "data/bronze"),
-        raw_dir=path("raw_dir", "data/raw"),
         silver_dir=path("silver_dir", "data/silver"),
         prefeituras_csv=path("prefeituras_csv", "data/silver/prefeituras.csv"),
         sigi_casas_csv=path("sigi_casas_csv", "data/silver/sigi-casas.csv"),
