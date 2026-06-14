@@ -45,13 +45,12 @@ def _env(key: str, default: str) -> str:
 @dataclass
 class Paths:
     bronze_dir: Path
+    vereadores_json: Path
     silver_dir: Path
     prefeituras_csv: Path
     sigi_casas_csv: Path
-    vereadores_json: Path
     vereadores_sample: Path
     vereadores_sapl_jsonl: Path
-    results_jsonl: Path
     dead_urls_json: Path
     url_validation_jsonl: Path
     prefeituras_validated: Path
@@ -59,8 +58,8 @@ class Paths:
     sapl_failures_csv: Path
     sapl_coverage_sample: Path
     model_pilot_json: Path
-    gold_json: Path
-    gold_parquet: Path
+    gold_dir: Path
+    results_jsonl: Path
 
 
 @dataclass
@@ -86,13 +85,12 @@ def _build_config() -> Config:
 
     paths = Paths(
         bronze_dir=path("bronze_dir", "data/bronze"),
+        vereadores_json=path("vereadores_json", "data/bronze/vereadores-completo.json"),
         silver_dir=path("silver_dir", "data/silver"),
         prefeituras_csv=path("prefeituras_csv", "data/silver/prefeituras.csv"),
         sigi_casas_csv=path("sigi_casas_csv", "data/silver/sigi-casas.csv"),
-        vereadores_json=path("vereadores_json", "data/silver/vereadores-completo.json"),
         vereadores_sample=path("vereadores_sample", "data/silver/vereadores-sample.json"),
         vereadores_sapl_jsonl=path("vereadores_sapl_jsonl", "data/silver/vereadores-sapl.jsonl"),
-        results_jsonl=path("results_jsonl", "data/silver/results.jsonl"),
         dead_urls_json=path("dead_urls_json", "data/silver/dead_urls.json"),
         url_validation_jsonl=path("url_validation_jsonl", "data/silver/url-validation.jsonl"),
         prefeituras_validated=path("prefeituras_validated", "data/silver/prefeituras-validated.csv"),
@@ -100,8 +98,8 @@ def _build_config() -> Config:
         sapl_failures_csv=path("sapl_failures_csv", "data/silver/sapl-failures.csv"),
         sapl_coverage_sample=path("sapl_coverage_sample", "data/silver/sapl-coverage-sample.jsonl"),
         model_pilot_json=path("model_pilot_json", "data/silver/model-pilot.json"),
-        gold_json=path("gold_json", "data/vereadores-completo.json"),
-        gold_parquet=path("gold_parquet", "data/vereadores-completo.parquet"),
+        gold_dir=path("gold_dir", "data/gold"),
+        results_jsonl=path("results_jsonl", "data/gold/results.jsonl"),
     )
 
     return Config(

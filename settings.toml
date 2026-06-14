@@ -8,15 +8,14 @@
 [paths]
 # Bronze layer — raw external sources (TSE, IBGE, Senado)
 bronze_dir            = "data/bronze"
+vereadores_json       = "data/bronze/vereadores-completo.json"
 
 # Silver layer — normalised data and pipeline artefacts
 silver_dir            = "data/silver"
 prefeituras_csv       = "data/silver/prefeituras.csv"
 sigi_casas_csv        = "data/silver/sigi-casas.csv"
-vereadores_json       = "data/silver/vereadores-completo.json"
 vereadores_sample     = "data/silver/vereadores-sample.json"
 vereadores_sapl_jsonl = "data/silver/vereadores-sapl.jsonl"
-results_jsonl         = "data/silver/results.jsonl"
 dead_urls_json        = "data/silver/dead_urls.json"
 url_validation_jsonl  = "data/silver/url-validation.jsonl"
 prefeituras_validated = "data/silver/prefeituras-validated.csv"
@@ -26,8 +25,8 @@ sapl_coverage_sample  = "data/silver/sapl-coverage-sample.jsonl"
 model_pilot_json      = "data/silver/model-pilot.json"
 
 # Gold layer — final deliverable
-gold_json             = "data/vereadores-completo.json"
-gold_parquet          = "data/vereadores-completo.parquet"
+gold_dir              = "data/gold"
+results_jsonl         = "data/gold/results.jsonl"
 
 [pipeline]
 # Default Ollama model. Requires ~10 GB VRAM (e.g. RTX 3080 / 4070).
