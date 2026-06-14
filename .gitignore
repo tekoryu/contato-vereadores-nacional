@@ -239,3 +239,4 @@ data/**/*.bak*
 
 # Session transcripts
 docs/*.txt
+.antigravitycli/
