@@ -39,7 +39,9 @@ dependencies = [
     "ollama>=0.6.2",
     "pandas>=3.0.3",
     "playwright>=1.60.0",
+    "plotly>=5.0.0",
     "pyarrow>=24.0.0",
+    "streamlit>=1.30.0",
     "tomli>=2.0.0; python_version < '3.11'",
 ]
 
