@@ -9,10 +9,16 @@ Run in a second terminal alongside pipeline.py:
 import argparse
 import json
 import os
+import sys
 import time
 from collections import Counter, deque
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from config import cfg  # noqa: E402
 
 from rich.align import Align
 from rich.console import Group
