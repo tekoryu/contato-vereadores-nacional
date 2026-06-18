@@ -9,6 +9,8 @@
 
 This project demonstrates the power of combining traditional data engineering with local Large Language Models (LLMs). It maps the digital footprint of all 5,571 Brazilian municipalities and deploys an autonomous web crawler to navigate unstructured municipal websites, identify contact pages, and extract the official public emails of elected officials.
 
+![Case Study Infographic](portfolio/thumbnail/contato-vereadores-hero-refined.png)
+
 ---
 
 ## 🚀 Key Achievements
@@ -86,8 +88,8 @@ I built this project to showcase my ability to solve messy, real-world data prob
 If your team needs an engineer who can build resilient data pipelines, integrate LLMs into production workflows, and drive projects from ambiguous requirements to measurable results, **let's talk.**
 
 - **GitHub:** [github.com/tekoryu](https://github.com/tekoryu)
-- **LinkedIn:** *(Add your LinkedIn URL here)*
-- **Email:** *(Add your contact email here)*
+- **LinkedIn:** [https://www.linkedin.com/in/anderson-monteiro](https://www.linkedin.com/in/anderson-monteiro-3622923a3/?locale=en-US)
+- **Email:** [alvesmonteiroanderson@gmail.com](mailto:alvesmonteiroanderson@gmail.com)
 
 ---
 
