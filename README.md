@@ -4,6 +4,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Playwright](https://img.shields.io/badge/Playwright-Async-green.svg)](https://playwright.dev/python/)
 [![Ollama](https://img.shields.io/badge/AI-Ollama-black.svg)](https://ollama.com/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://brazil-municipal-counselors-contact.streamlit.app/)
 
 **The largest open dataset of contact information for Brazilian municipal legislators (*vereadores*), built with an autonomous AI data pipeline.**
 
@@ -101,15 +102,19 @@ python src/pipeline_async.py --concurrency 3
 
 *Note: You can override the default model or concurrency by editing `settings.toml` or passing CLI arguments.*
 
-### Running the Interactive Dashboard
+### Interactive Dashboard
 
-You can explore and filter the final extracted politician leads dataset using the built-in Streamlit dashboard.
+The final extracted politician leads dataset is fully queryable and downloadable online:
+
+👉 **[Live Streamlit Dashboard Web App](https://brazil-municipal-counselors-contact.streamlit.app/)**
+
+Alternatively, you can run the dashboard locally:
 
 ```bash
 # Start the local dashboard server
 streamlit run dashboard.py
 ```
-This will spin up a local server on `http://localhost:8501` containing interactive KPI metrics, domain analytics charts, and a search-and-export leads table.
+This will spin up a local instance on `http://localhost:8501`.
 
 ---
 
