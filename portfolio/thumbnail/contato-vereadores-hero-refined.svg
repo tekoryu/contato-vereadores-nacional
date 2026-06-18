@@ -1,0 +1,148 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <title>Contato Vereadores Nacional — Data Pipeline Case Study (Refined)</title>
+
+  <defs>
+    <!-- Import high-quality Google Fonts -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Fira+Code:wght@400;500;700&amp;display=swap');
+      
+      .title-sans {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .code-mono {
+        font-family: 'Fira Code', 'DejaVu Sans Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
+      }
+      
+      /* Card gradients and glows */
+      .card-bg {
+        fill: url(#cardGrad);
+        stroke: #232c40;
+        stroke-width: 1.5;
+        filter: url(#cardShadow);
+      }
+    </style>
+
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A0E16"/>
+      <stop offset="1" stop-color="#121A2B"/>
+    </linearGradient>
+
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141C30"/>
+      <stop offset="1" stop-color="#0E1422"/>
+    </linearGradient>
+
+    <!-- Subtle drop shadow to give UI cards depth -->
+    <filter id="cardShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+
+    <pattern id="bgDots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#E7E9EE"/>
+    </pattern>
+
+    <pattern id="dotsBronze" width="13" height="13" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="1.5" fill="#E0A569"/>
+    </pattern>
+    <pattern id="dotsSilver" width="13" height="13" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="1.5" fill="#D9DEE6"/>
+    </pattern>
+    <pattern id="dotsTeal" width="13" height="13" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="1.5" fill="#57E2C6"/>
+    </pattern>
+    <pattern id="dotsGold" width="13" height="13" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="1.5" fill="#F4D27A"/>
+    </pattern>
+  </defs>
+
+  <!-- background -->
+  <rect width="1280" height="720" fill="url(#bgGrad)"/>
+  <rect width="1280" height="720" fill="url(#bgDots)" fill-opacity="0.04"/>
+
+  <!-- eyebrow -->
+  <text x="90" y="62" class="code-mono" font-size="14" font-weight="700" letter-spacing="3" fill="#57E2C6" dominant-baseline="central">DATA PIPELINE CASE STUDY</text>
+
+  <!-- badge -->
+  <rect x="920" y="44" width="270" height="36" rx="18" fill="#141C30" stroke="#57E2C6" stroke-width="1.2" filter="url(#cardShadow)"/>
+  <text x="1055" y="62" text-anchor="middle" class="code-mono" font-size="13" font-weight="700" letter-spacing="1.2" fill="#57E2C6" dominant-baseline="central">LOCAL LLM &#183; $0 API COST</text>
+
+  <!-- headline -->
+  <text x="90" y="145" class="title-sans">
+    <tspan font-size="76" font-weight="800" fill="#EDEFF3">5,571</tspan>
+    <tspan font-size="38" font-weight="400" dx="16" fill="#EDEFF3">municipalities.</tspan>
+  </text>
+  <text x="90" y="202" class="title-sans" font-size="34" font-weight="600" fill="#8089A0">One pipeline. Fully mapped.</text>
+
+  <!-- divider -->
+  <line x1="90" y1="228" x2="1190" y2="228" stroke="#232C40" stroke-width="1"/>
+
+  <!-- ===== Medallion pipeline diagram (4-Stage Layout) ===== -->
+
+  <!-- BRONZE panel -->
+  <rect x="90" y="250" width="240" height="210" rx="16" class="card-bg"/>
+  <rect x="90" y="250" width="240" height="6" rx="3" fill="#C97D3D"/>
+  <text x="110" y="272" class="code-mono" font-size="17" font-weight="700" letter-spacing="1.5" fill="#E0A569" dominant-baseline="central">BRONZE</text>
+  <rect x="91" y="295" width="238" height="120" fill="url(#dotsBronze)" fill-opacity="0.45"/>
+  <text x="110" y="438" class="code-mono" font-size="11" font-weight="700" fill="#8089A0" dominant-baseline="central">RAW ROSTERS: TSE/IBGE/SENATE</text>
+
+  <!-- arrow 1 -->
+  <text x="353" y="355" text-anchor="middle" class="title-sans" font-size="36" font-weight="700" fill="#57E2C6" dominant-baseline="central">&#8250;</text>
+
+  <!-- SILVER panel -->
+  <rect x="376" y="270" width="240" height="190" rx="16" class="card-bg"/>
+  <rect x="376" y="270" width="240" height="6" rx="3" fill="#B9C0CC"/>
+  <text x="396" y="292" class="code-mono" font-size="17" font-weight="700" letter-spacing="1.5" fill="#D9DEE6" dominant-baseline="central">SILVER</text>
+  <rect x="377" y="315" width="238" height="100" fill="url(#dotsSilver)" fill-opacity="0.45"/>
+  <text x="396" y="438" class="code-mono" font-size="11" font-weight="700" fill="#8089A0" dominant-baseline="central">5,571 VALIDATED DOMAINS</text>
+
+  <!-- arrow 2 -->
+  <text x="639" y="355" text-anchor="middle" class="title-sans" font-size="36" font-weight="700" fill="#57E2C6" dominant-baseline="central">&#8250;</text>
+
+  <!-- AI CRAWLER panel -->
+  <rect x="662" y="290" width="240" height="170" rx="16" class="card-bg"/>
+  <rect x="662" y="290" width="240" height="6" rx="3" fill="#57E2C6"/>
+  <text x="682" y="312" class="code-mono" font-size="17" font-weight="700" letter-spacing="1.5" fill="#57E2C6" dominant-baseline="central">AI CRAWLER</text>
+  <rect x="663" y="335" width="238" height="80" fill="url(#dotsTeal)" fill-opacity="0.45"/>
+  <text x="682" y="438" class="code-mono" font-size="11" font-weight="700" fill="#8089A0" dominant-baseline="central">PLAYWRIGHT + OLLAMA SCRAPE</text>
+
+  <!-- arrow 3 -->
+  <text x="925" y="355" text-anchor="middle" class="title-sans" font-size="36" font-weight="700" fill="#57E2C6" dominant-baseline="central">&#8250;</text>
+
+  <!-- GOLD panel -->
+  <rect x="948" y="310" width="240" height="150" rx="16" class="card-bg"/>
+  <rect x="948" y="310" width="240" height="6" rx="3" fill="#E3B23C"/>
+  <text x="968" y="332" class="code-mono" font-size="17" font-weight="700" letter-spacing="1.5" fill="#F4D27A" dominant-baseline="central">GOLD</text>
+  <rect x="949" y="355" width="238" height="60" fill="url(#dotsGold)" fill-opacity="0.45"/>
+  <text x="968" y="438" class="code-mono" font-size="11" font-weight="700" fill="#8089A0" dominant-baseline="central">VERIFIED LEADS FILE</text>
+
+  <!-- divider -->
+  <line x1="90" y1="495" x2="1190" y2="495" stroke="#232C40" stroke-width="1"/>
+
+  <!-- ===== Stats row ===== -->
+
+  <!-- col 1 -->
+  <rect x="260" y="520" width="40" height="4" rx="2" fill="#57E2C6"/>
+  <text x="280" y="565" text-anchor="middle" class="title-sans" font-size="48" font-weight="800" fill="#EDEFF3" dominant-baseline="central">100%</text>
+  <text x="280" y="603" text-anchor="middle" class="code-mono" font-size="14" font-weight="700" fill="#8089A0">municipalities mapped</text>
+  <text x="280" y="622" text-anchor="middle" class="code-mono" font-size="12" fill="#5C6478">(5,571 of 5,571)</text>
+
+  <line x1="460" y1="510" x2="460" y2="630" stroke="#232C40" stroke-width="1"/>
+
+  <!-- col 2 -->
+  <rect x="620" y="520" width="40" height="4" rx="2" fill="#D9DEE6"/>
+  <text x="640" y="565" text-anchor="middle" class="title-sans" font-size="48" font-weight="800" fill="#EDEFF3" dominant-baseline="central">95.2%</text>
+  <text x="640" y="603" text-anchor="middle" class="code-mono" font-size="14" font-weight="700" fill="#8089A0">Prefeitura email coverage</text>
+
+  <line x1="820" y1="510" x2="820" y2="630" stroke="#232C40" stroke-width="1"/>
+
+  <!-- col 3 -->
+  <rect x="980" y="520" width="40" height="4" rx="2" fill="#F4D27A"/>
+  <text x="1000" y="565" text-anchor="middle" class="title-sans" font-size="48" font-weight="800" fill="#EDEFF3" dominant-baseline="central">81.0%</text>
+  <text x="1000" y="603" text-anchor="middle" class="code-mono" font-size="14" font-weight="700" fill="#8089A0">Câmara email coverage</text>
+
+  <!-- footer -->
+  <line x1="90" y1="658" x2="1190" y2="658" stroke="#232C40" stroke-width="1"/>
+  <text x="90" y="685" class="code-mono" font-size="13" font-weight="500" fill="#5C6478" dominant-baseline="central">Playwright (async) &#183; Ollama qwen2.5:14b &#183; resumable &amp; dead-link-cached</text>
+  <text x="1190" y="685" text-anchor="end" class="code-mono" font-size="13" font-weight="700" fill="#57E2C6" dominant-baseline="central">github.com/tekoryu</text>
+
+</svg>
