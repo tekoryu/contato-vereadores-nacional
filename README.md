@@ -38,6 +38,28 @@ The data pipeline operates in a Medallion Architecture:
 
 For a detailed breakdown of how the URL discovery heuristics and the AI extraction logic work, read the [Data Pipeline Methodology](docs/HISTORY.md).
 
+### Crawling & Decision Loop
+
+The diagram below details the autonomous decision loop executed by the crawler for each politician:
+
+```mermaid
+graph TD
+    A[Target URL] --> B[Playwright: Load page & extract text/links]
+    B --> C{Any emails on page?}
+    
+    C -- Yes --> D[Ollama AI: Identify matching email for politician]
+    D --> E{Match identified?}
+    E -- Yes --> F[Save email to Gold dataset]
+    E -- No --> G[Ollama AI: Choose best next link to click]
+    
+    C -- No --> G
+    
+    G --> H{Promising link selected?}
+    H -- Yes --> I[Navigate to new URL]
+    I --> B
+    H -- No --> J[Stop search for politician]
+```
+
 ---
 
 ## 💻 Try It Yourself
