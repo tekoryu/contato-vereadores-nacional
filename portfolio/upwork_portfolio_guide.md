@@ -36,11 +36,13 @@ Developed a state-of-the-art, AI-assisted lead extraction pipeline to scrape pub
 2. Unstructured Data Parsing: Integrated local LLMs (Ollama + Qwen2.5:14b) to act as intelligent text-parsers, understanding varying page structures to precisely extract target contact fields.
 3. Cost Efficiency: Built an auxiliary pipeline querying official SAPL APIs to directly harvest politician data where available, saving LLM tokens and scraping time.
 4. Resiliency & Scale: Engineered a fully resumable pipeline using Pandas and JSONL checkpoints, ensuring data isn't lost on crashes or network timeouts.
+5. Interactive Data Explorer: Built a high-fidelity Streamlit and Plotly dashboard mapping contact coverages, email provider domains, and search-and-export functions for the final dataset.
 
 ### Tech Stack:
 - Python 3.12+
 - Playwright (Headless Browser Automation)
 - Ollama (Local LLM Execution)
+- Streamlit & Plotly (Data Visualization & Interactive App)
 - Pandas & PyArrow (Data Engineering & Parquet Processing)
 ```
 
@@ -55,4 +57,7 @@ Add these tags when publishing to ensure your portfolio ranks for matching searc
 * `Large Language Models (LLMs)`
 * `Data Engineering`
 * `Ollama`
+* `Streamlit`
+* `Data Visualization`
 * `API Integration`
+

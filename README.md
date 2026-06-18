@@ -101,6 +101,16 @@ python src/pipeline_async.py --concurrency 3
 
 *Note: You can override the default model or concurrency by editing `settings.toml` or passing CLI arguments.*
 
+### Running the Interactive Dashboard
+
+You can explore and filter the final extracted politician leads dataset using the built-in Streamlit dashboard.
+
+```bash
+# Start the local dashboard server
+streamlit run dashboard.py
+```
+This will spin up a local server on `http://localhost:8501` containing interactive KPI metrics, domain analytics charts, and a search-and-export leads table.
+
 ---
 
 ## 🤝 Hire Me
